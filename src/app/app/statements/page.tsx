@@ -19,13 +19,19 @@ const STATUS: Record<StatementStatus, { label: string; tone: "positive" | "warni
   processing: { label: "Processing", tone: "brand" },
 };
 
+/** A file left in progress for 5+ minutes was cut off (e.g. a timeout), so offer a retry. */
+function isInterrupted(status: string, updatedAt: string): boolean {
+  const inProgress = status === "extracting" || status === "processing" || status === "uploaded";
+  return inProgress && Date.now() - new Date(updatedAt).getTime() > 5 * 60 * 1000;
+}
+
 export default async function StatementsPage() {
   const { supabase } = await requireUser();
   const [cards, { data }] = await Promise.all([
     getCards(supabase),
     supabase
       .from("statements")
-      .select("id, card_id, file_name, file_type, file_path, status, issuer, period_start, period_end, opening_balance_pence, closing_balance_pence, total_debits_pence, total_credits_pence, reconciled, reconciliation_diff_pence, transaction_count, duplicates_dropped, error, created_at")
+      .select("id, card_id, file_name, file_type, file_path, status, issuer, period_start, period_end, opening_balance_pence, closing_balance_pence, total_debits_pence, total_credits_pence, reconciled, reconciliation_diff_pence, transaction_count, duplicates_dropped, error, created_at, updated_at")
       .order("period_end", { ascending: false, nullsFirst: true })
       .order("created_at", { ascending: false }),
   ]);
@@ -69,7 +75,9 @@ export default async function StatementsPage() {
           </thead>
           <tbody>
             {statements.map((s) => {
-              const st = STATUS[s.status as StatementStatus];
+              // A file left "reading" for 5+ minutes was cut off (e.g. a timeout) — offer a retry.
+              const stale = isInterrupted(s.status, s.updated_at);
+              const st = stale ? { label: "Interrupted — retry", tone: "warning" as const } : STATUS[s.status as StatementStatus];
               return (
                 <tr key={s.id} className="align-top">
                   <Td>

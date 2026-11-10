@@ -26,7 +26,7 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu
 ```
 browser ──upload──▶ Supabase Storage (private, <user_id>/…)
    │
-   └─POST /api/statements/:id/process (60 s budget, London)
+   └─POST /api/statements/:id/process (up to 300 s per file, London)
         1 Upload      statements row, status uploaded
         2 Extract     PDF → Claude document block → schema-valid JSON  (CSV → papaparse + column mapping)
         3 Mask/normalise  last-4 only, ISO dates, pence, merchant clean-up (user rules → data/merchant-aliases.json)

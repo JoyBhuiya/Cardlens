@@ -4,10 +4,10 @@ import { serverEnv } from "@/lib/env";
 
 let client: Anthropic | null = null;
 
-/** Server-only Anthropic client. 55s timeout keeps us inside the 60s per-file budget. */
+/** Server-only Anthropic client. 240s timeout keeps one attempt inside the 300s per-file budget. */
 export function anthropic(): Anthropic {
   if (!client) {
-    client = new Anthropic({ apiKey: serverEnv.anthropicKey(), timeout: 55_000, maxRetries: 1 });
+    client = new Anthropic({ apiKey: serverEnv.anthropicKey(), timeout: 240_000, maxRetries: 0 });
   }
   return client;
 }

@@ -11,7 +11,7 @@ import type { AnnualSummary } from "@/lib/summary/schema";
 import { requireUser } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 
-export const maxDuration = 60; // report generation (server action) calls Claude
+export const maxDuration = 180; // report generation (server action) calls Claude
 
 export async function generateMetadata({ params }: { params: Promise<{ year: string }> }): Promise<Metadata> {
   const { year } = await params;

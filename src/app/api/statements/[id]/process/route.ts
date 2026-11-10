@@ -4,7 +4,7 @@ import { processStatement } from "@/lib/pipeline/run";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // 60-second budget per file
+export const maxDuration = 300; // long statements take ~60s+ for Claude to read; Pro plan allows 300s
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
