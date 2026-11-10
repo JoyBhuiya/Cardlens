@@ -3,6 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Refreshes the Supabase session cookie and guards /app routes. */
 export async function proxy(request: NextRequest) {
+  // Supabase sends auth errors (e.g. an expired or already-used magic link) to the Site URL
+  // with ?error_code=…; send the person to sign-in with a clear message instead.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("error_code")) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "?error=link";
+    return NextResponse.redirect(login);
+  }
+  if (request.nextUrl.pathname === "/") return NextResponse.next();
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -42,5 +51,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/login", "/api/:path*"],
+  matcher: ["/", "/app/:path*", "/login", "/api/:path*"],
 };
