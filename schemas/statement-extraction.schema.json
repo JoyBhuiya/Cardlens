@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "issuer": {
+      "description": "Card issuer or bank name, e.g. Barclaycard, American Express",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "card_last4": {
+      "description": "Last 4 digits of the card number only, never the full number",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "period_start": {
+      "description": "Statement period start date, ISO yyyy-mm-dd",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "period_end": {
+      "description": "Statement period end / statement date, ISO yyyy-mm-dd",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "opening_balance": {
+      "description": "Previous/opening balance in pounds. Positive when money is owed; negative if the account was in credit",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "closing_balance": {
+      "description": "New/closing balance in pounds. Positive when money is owed; negative if in credit",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "printed_total_debits": {
+      "description": "Printed total of new spending, fees and interest for the period if the statement shows one",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "printed_total_credits": {
+      "description": "Printed total of payments and credits for the period if the statement shows one",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "description": "Statement currency code, normally GBP"
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Transaction or posting date exactly as printed, or ISO yyyy-mm-dd if unambiguous"
+          },
+          "description": {
+            "type": "string",
+            "description": "Full description line as printed, including merchant and location"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in pounds, always positive"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "debit",
+              "credit"
+            ],
+            "description": "debit = increases what is owed (purchases, fees, interest, cash); credit = reduces it (payments, refunds)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "purchase",
+              "payment",
+              "refund",
+              "fee",
+              "interest",
+              "cash_advance",
+              "balance_transfer",
+              "other"
+            ],
+            "description": "Best guess at the transaction type"
+          },
+          "foreign_currency": {
+            "type": "boolean",
+            "description": "True if the line shows a non-sterling amount or exchange rate"
+          }
+        },
+        "required": [
+          "date",
+          "description",
+          "amount",
+          "direction",
+          "kind",
+          "foreign_currency"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "issuer",
+    "card_last4",
+    "period_start",
+    "period_end",
+    "opening_balance",
+    "closing_balance",
+    "printed_total_debits",
+    "printed_total_credits",
+    "currency",
+    "transactions"
+  ],
+  "additionalProperties": false
+}

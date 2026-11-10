@@ -1,0 +1,32 @@
+/* Cardlens design tokens — calm, precise, financial. One teal accent, navy text. */
+:root {
+  --brand: #0e7c66;
+  --brand-strong: #0a5c4c;
+  --brand-soft: #e6f2ef;
+  --ink: #0f1b2d;
+  --navy: #1e3a5f;
+  --muted: #4a5568;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --border: #e2e8f0;
+  --border-strong: #94a3b8;
+  --positive: #15803d;
+  --negative: #b42318;
+  --warning: #b45309;
+}
+
+.dark {
+  --brand: #2bb596;
+  --brand-strong: #5fd0b4;
+  --brand-soft: #12352e;
+  --ink: #e8edf4;
+  --navy: #9db4d6;
+  --muted: #a3b0c2;
+  --surface: #0b1220;
+  --surface-2: #121b2b;
+  --border: #233044;
+  --border-strong: #3a4a63;
+  --positive: #4ade80;
+  --negative: #f87171;
+  --warning: #fbbf24;
+}

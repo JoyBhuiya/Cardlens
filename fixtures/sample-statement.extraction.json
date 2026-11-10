@@ -1,0 +1,165 @@
+{
+  "issuer": "Barclaycard",
+  "card_last4": "9012",
+  "period_start": "2026-02-28",
+  "period_end": "2026-03-28",
+  "opening_balance": 812.55,
+  "closing_balance": 978.67,
+  "printed_total_debits": 674.12,
+  "printed_total_credits": 508.0,
+  "currency": "GBP",
+  "transactions": [
+    {
+      "date": "2026-03-02",
+      "description": "TESCO STORES 3042 LONDON GB",
+      "amount": 64.32,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-03",
+      "description": "NETFLIX.COM 866-579-7172",
+      "amount": 10.99,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-04",
+      "description": "AMZNMKTPLACE*2X4KL91 AMAZON.CO.UK",
+      "amount": 23.49,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-05",
+      "description": "PRET A MANGER LONDON",
+      "amount": 6.85,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-05",
+      "description": "PRET A MANGER LONDON",
+      "amount": 6.85,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-07",
+      "description": "TFL TRAVEL CH TFL.GOV.UK/CP",
+      "amount": 18.4,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-09",
+      "description": "SPOTIFY P1A2B3C4 STOCKHOLM",
+      "amount": 11.99,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-10",
+      "description": "PAYMENT RECEIVED - THANK YOU",
+      "amount": 450.0,
+      "direction": "credit",
+      "kind": "payment",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-11",
+      "description": "SQ *THE LITTLE BAKERY BRIGHTON",
+      "amount": 12.4,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-12",
+      "description": "ASOS.COM LONDON",
+      "amount": 58.0,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-15",
+      "description": "ASOS.COM REFUND",
+      "amount": 58.0,
+      "direction": "credit",
+      "kind": "refund",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-16",
+      "description": "BOOKING.COM AMSTERDAM EUR 212.00",
+      "amount": 183.27,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": true
+    },
+    {
+      "date": "2026-03-16",
+      "description": "NON-STERLING TRANSACTION FEE",
+      "amount": 5.04,
+      "direction": "debit",
+      "kind": "fee",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-18",
+      "description": "SHOPIFY* 184726352",
+      "amount": 25.0,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-20",
+      "description": "DELIVEROO LONDON",
+      "amount": 27.15,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-22",
+      "description": "OCTOPUS ENERGY",
+      "amount": 96.0,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-25",
+      "description": "CASH WITHDRAWAL HSBC ATM 4929 1234 5678 9012",
+      "amount": 100.0,
+      "direction": "debit",
+      "kind": "purchase",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-25",
+      "description": "CASH ADVANCE FEE",
+      "amount": 3.0,
+      "direction": "debit",
+      "kind": "fee",
+      "foreign_currency": false
+    },
+    {
+      "date": "2026-03-28",
+      "description": "INTEREST ON PURCHASES",
+      "amount": 21.37,
+      "direction": "debit",
+      "kind": "interest",
+      "foreign_currency": false
+    }
+  ]
+}

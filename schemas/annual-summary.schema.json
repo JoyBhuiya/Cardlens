@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "executive_summary": {
+      "type": "string",
+      "description": "120–180 word professional summary of the year"
+    },
+    "key_findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Exactly 3 key findings, one sentence each"
+    },
+    "saving_ideas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Short action, e.g. 'Review 4 subscriptions'"
+          },
+          "detail": {
+            "type": "string",
+            "description": "One or two sentences explaining the idea using only figures from the metrics"
+          },
+          "estimated_annual_saving_gbp": {
+            "type": "number",
+            "description": "Estimated annual saving in whole pounds, taken from or calculated from the metrics"
+          }
+        },
+        "required": [
+          "title",
+          "detail",
+          "estimated_annual_saving_gbp"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Up to 5 budgeting ideas"
+    }
+  },
+  "required": [
+    "executive_summary",
+    "key_findings",
+    "saving_ideas"
+  ],
+  "additionalProperties": false
+}

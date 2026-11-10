@@ -1,0 +1,1007 @@
+[
+ {
+  "match": "AMAZON PRIME",
+  "merchant": "Amazon Prime",
+  "category": "subscriptions"
+ },
+ {
+  "match": "PRIME VIDEO",
+  "merchant": "Amazon Prime Video",
+  "category": "subscriptions"
+ },
+ {
+  "match": "AUDIBLE",
+  "merchant": "Audible",
+  "category": "subscriptions"
+ },
+ {
+  "match": "KINDLE",
+  "merchant": "Amazon Kindle",
+  "category": "entertainment"
+ },
+ {
+  "match": "AMZNMKTPLACE",
+  "merchant": "Amazon",
+  "category": "shopping"
+ },
+ {
+  "match": "AMZN MKTP",
+  "merchant": "Amazon",
+  "category": "shopping"
+ },
+ {
+  "match": "AMAZON",
+  "merchant": "Amazon",
+  "category": "shopping"
+ },
+ {
+  "match": "UBER EATS",
+  "merchant": "Uber Eats",
+  "category": "takeaway"
+ },
+ {
+  "match": "UBER *EATS",
+  "merchant": "Uber Eats",
+  "category": "takeaway"
+ },
+ {
+  "match": "UBER",
+  "merchant": "Uber",
+  "category": "transport"
+ },
+ {
+  "match": "DELIVEROO",
+  "merchant": "Deliveroo",
+  "category": "takeaway"
+ },
+ {
+  "match": "JUST EAT",
+  "merchant": "Just Eat",
+  "category": "takeaway"
+ },
+ {
+  "match": "JUSTEAT",
+  "merchant": "Just Eat",
+  "category": "takeaway"
+ },
+ {
+  "match": "DOMINOS",
+  "merchant": "Domino's",
+  "category": "takeaway"
+ },
+ {
+  "match": "TESCO PFS",
+  "merchant": "Tesco Fuel",
+  "category": "transport"
+ },
+ {
+  "match": "TESCO",
+  "merchant": "Tesco",
+  "category": "groceries"
+ },
+ {
+  "match": "SAINSBURYS PETROL",
+  "merchant": "Sainsbury's Fuel",
+  "category": "transport"
+ },
+ {
+  "match": "SAINSBURY",
+  "merchant": "Sainsbury's",
+  "category": "groceries"
+ },
+ {
+  "match": "ASDA",
+  "merchant": "Asda",
+  "category": "groceries"
+ },
+ {
+  "match": "MORRISONS",
+  "merchant": "Morrisons",
+  "category": "groceries"
+ },
+ {
+  "match": "WAITROSE",
+  "merchant": "Waitrose",
+  "category": "groceries"
+ },
+ {
+  "match": "LIDL",
+  "merchant": "Lidl",
+  "category": "groceries"
+ },
+ {
+  "match": "ALDI",
+  "merchant": "Aldi",
+  "category": "groceries"
+ },
+ {
+  "match": "CO-OP",
+  "merchant": "Co-op",
+  "category": "groceries"
+ },
+ {
+  "match": "COOP",
+  "merchant": "Co-op",
+  "category": "groceries"
+ },
+ {
+  "match": "OCADO",
+  "merchant": "Ocado",
+  "category": "groceries"
+ },
+ {
+  "match": "ICELAND",
+  "merchant": "Iceland",
+  "category": "groceries"
+ },
+ {
+  "match": "M&S SIMPLY FOOD",
+  "merchant": "M&S Food",
+  "category": "groceries"
+ },
+ {
+  "match": "MARKS&SPENCER",
+  "merchant": "Marks & Spencer",
+  "category": "shopping"
+ },
+ {
+  "match": "MARKS & SPENCER",
+  "merchant": "Marks & Spencer",
+  "category": "shopping"
+ },
+ {
+  "match": "M&S",
+  "merchant": "Marks & Spencer",
+  "category": "shopping"
+ },
+ {
+  "match": "NETFLIX",
+  "merchant": "Netflix",
+  "category": "subscriptions"
+ },
+ {
+  "match": "SPOTIFY",
+  "merchant": "Spotify",
+  "category": "subscriptions"
+ },
+ {
+  "match": "DISNEY PLUS",
+  "merchant": "Disney+",
+  "category": "subscriptions"
+ },
+ {
+  "match": "DISNEYPLUS",
+  "merchant": "Disney+",
+  "category": "subscriptions"
+ },
+ {
+  "match": "APPLE.COM/BILL",
+  "merchant": "Apple Services",
+  "category": "subscriptions"
+ },
+ {
+  "match": "ITUNES",
+  "merchant": "Apple Services",
+  "category": "subscriptions"
+ },
+ {
+  "match": "GOOGLE *YOUTUBE",
+  "merchant": "YouTube Premium",
+  "category": "subscriptions"
+ },
+ {
+  "match": "YOUTUBE",
+  "merchant": "YouTube Premium",
+  "category": "subscriptions"
+ },
+ {
+  "match": "GOOGLE STORAGE",
+  "merchant": "Google One",
+  "category": "subscriptions"
+ },
+ {
+  "match": "GOOGLE ONE",
+  "merchant": "Google One",
+  "category": "subscriptions"
+ },
+ {
+  "match": "MICROSOFT",
+  "merchant": "Microsoft",
+  "category": "subscriptions"
+ },
+ {
+  "match": "ADOBE",
+  "merchant": "Adobe",
+  "category": "subscriptions"
+ },
+ {
+  "match": "NOW TV",
+  "merchant": "NOW",
+  "category": "subscriptions"
+ },
+ {
+  "match": "NOWTV",
+  "merchant": "NOW",
+  "category": "subscriptions"
+ },
+ {
+  "match": "SKY DIGITAL",
+  "merchant": "Sky",
+  "category": "utilities"
+ },
+ {
+  "match": "SKY UK",
+  "merchant": "Sky",
+  "category": "utilities"
+ },
+ {
+  "match": "DAZN",
+  "merchant": "DAZN",
+  "category": "subscriptions"
+ },
+ {
+  "match": "PUREGYM",
+  "merchant": "PureGym",
+  "category": "personal_care"
+ },
+ {
+  "match": "THE GYM GROUP",
+  "merchant": "The Gym Group",
+  "category": "personal_care"
+ },
+ {
+  "match": "DAVID LLOYD",
+  "merchant": "David Lloyd",
+  "category": "personal_care"
+ },
+ {
+  "match": "BRITISH GAS",
+  "merchant": "British Gas",
+  "category": "utilities"
+ },
+ {
+  "match": "OCTOPUS ENERGY",
+  "merchant": "Octopus Energy",
+  "category": "utilities"
+ },
+ {
+  "match": "EDF",
+  "merchant": "EDF Energy",
+  "category": "utilities"
+ },
+ {
+  "match": "EON",
+  "merchant": "E.ON",
+  "category": "utilities"
+ },
+ {
+  "match": "E.ON",
+  "merchant": "E.ON",
+  "category": "utilities"
+ },
+ {
+  "match": "OVO",
+  "merchant": "OVO Energy",
+  "category": "utilities"
+ },
+ {
+  "match": "THAMES WATER",
+  "merchant": "Thames Water",
+  "category": "utilities"
+ },
+ {
+  "match": "BT GROUP",
+  "merchant": "BT",
+  "category": "utilities"
+ },
+ {
+  "match": "BT.COM",
+  "merchant": "BT",
+  "category": "utilities"
+ },
+ {
+  "match": "VIRGIN MEDIA",
+  "merchant": "Virgin Media",
+  "category": "utilities"
+ },
+ {
+  "match": "VODAFONE",
+  "merchant": "Vodafone",
+  "category": "utilities"
+ },
+ {
+  "match": "EE LIMITED",
+  "merchant": "EE",
+  "category": "utilities"
+ },
+ {
+  "match": "O2",
+  "merchant": "O2",
+  "category": "utilities"
+ },
+ {
+  "match": "THREE.CO.UK",
+  "merchant": "Three",
+  "category": "utilities"
+ },
+ {
+  "match": "GIFFGAFF",
+  "merchant": "giffgaff",
+  "category": "utilities"
+ },
+ {
+  "match": "TV LICENCE",
+  "merchant": "TV Licence",
+  "category": "utilities"
+ },
+ {
+  "match": "COUNCIL TAX",
+  "merchant": "Council Tax",
+  "category": "housing"
+ },
+ {
+  "match": "TFL TRAVEL",
+  "merchant": "TfL",
+  "category": "transport"
+ },
+ {
+  "match": "TFL.GOV",
+  "merchant": "TfL",
+  "category": "transport"
+ },
+ {
+  "match": "TRANSPORT FOR LONDON",
+  "merchant": "TfL",
+  "category": "transport"
+ },
+ {
+  "match": "TRAINLINE",
+  "merchant": "Trainline",
+  "category": "transport"
+ },
+ {
+  "match": "LNER",
+  "merchant": "LNER",
+  "category": "transport"
+ },
+ {
+  "match": "GWR",
+  "merchant": "GWR",
+  "category": "transport"
+ },
+ {
+  "match": "AVANTI",
+  "merchant": "Avanti West Coast",
+  "category": "transport"
+ },
+ {
+  "match": "NATIONAL RAIL",
+  "merchant": "National Rail",
+  "category": "transport"
+ },
+ {
+  "match": "SHELL",
+  "merchant": "Shell",
+  "category": "transport"
+ },
+ {
+  "match": "BP",
+  "merchant": "BP",
+  "category": "transport"
+ },
+ {
+  "match": "ESSO",
+  "merchant": "Esso",
+  "category": "transport"
+ },
+ {
+  "match": "TEXACO",
+  "merchant": "Texaco",
+  "category": "transport"
+ },
+ {
+  "match": "RINGGO",
+  "merchant": "RingGo",
+  "category": "transport"
+ },
+ {
+  "match": "PAYBYPHONE",
+  "merchant": "PayByPhone",
+  "category": "transport"
+ },
+ {
+  "match": "JUSTPARK",
+  "merchant": "JustPark",
+  "category": "transport"
+ },
+ {
+  "match": "DVLA",
+  "merchant": "DVLA",
+  "category": "transport"
+ },
+ {
+  "match": "BOLT.EU",
+  "merchant": "Bolt",
+  "category": "transport"
+ },
+ {
+  "match": "ADDISON LEE",
+  "merchant": "Addison Lee",
+  "category": "transport"
+ },
+ {
+  "match": "BRITISH AIRWAYS",
+  "merchant": "British Airways",
+  "category": "travel"
+ },
+ {
+  "match": "BRIT AIR",
+  "merchant": "British Airways",
+  "category": "travel"
+ },
+ {
+  "match": "EASYJET",
+  "merchant": "easyJet",
+  "category": "travel"
+ },
+ {
+  "match": "RYANAIR",
+  "merchant": "Ryanair",
+  "category": "travel"
+ },
+ {
+  "match": "JET2",
+  "merchant": "Jet2",
+  "category": "travel"
+ },
+ {
+  "match": "VIRGIN ATLANTIC",
+  "merchant": "Virgin Atlantic",
+  "category": "travel"
+ },
+ {
+  "match": "WIZZ AIR",
+  "merchant": "Wizz Air",
+  "category": "travel"
+ },
+ {
+  "match": "BOOKING.COM",
+  "merchant": "Booking.com",
+  "category": "travel"
+ },
+ {
+  "match": "AIRBNB",
+  "merchant": "Airbnb",
+  "category": "travel"
+ },
+ {
+  "match": "EXPEDIA",
+  "merchant": "Expedia",
+  "category": "travel"
+ },
+ {
+  "match": "PREMIER INN",
+  "merchant": "Premier Inn",
+  "category": "travel"
+ },
+ {
+  "match": "TRAVELODGE",
+  "merchant": "Travelodge",
+  "category": "travel"
+ },
+ {
+  "match": "HILTON",
+  "merchant": "Hilton",
+  "category": "travel"
+ },
+ {
+  "match": "MARRIOTT",
+  "merchant": "Marriott",
+  "category": "travel"
+ },
+ {
+  "match": "HEATHROW",
+  "merchant": "Heathrow Airport",
+  "category": "travel"
+ },
+ {
+  "match": "GATWICK",
+  "merchant": "Gatwick Airport",
+  "category": "travel"
+ },
+ {
+  "match": "STARBUCKS",
+  "merchant": "Starbucks",
+  "category": "dining"
+ },
+ {
+  "match": "COSTA",
+  "merchant": "Costa Coffee",
+  "category": "dining"
+ },
+ {
+  "match": "PRET A MANGER",
+  "merchant": "Pret A Manger",
+  "category": "dining"
+ },
+ {
+  "match": "PRET",
+  "merchant": "Pret A Manger",
+  "category": "dining"
+ },
+ {
+  "match": "CAFFE NERO",
+  "merchant": "Caff\u00e8 Nero",
+  "category": "dining"
+ },
+ {
+  "match": "GREGGS",
+  "merchant": "Greggs",
+  "category": "dining"
+ },
+ {
+  "match": "MCDONALDS",
+  "merchant": "McDonald's",
+  "category": "dining"
+ },
+ {
+  "match": "NANDOS",
+  "merchant": "Nando's",
+  "category": "dining"
+ },
+ {
+  "match": "WAGAMAMA",
+  "merchant": "Wagamama",
+  "category": "dining"
+ },
+ {
+  "match": "PIZZA EXPRESS",
+  "merchant": "PizzaExpress",
+  "category": "dining"
+ },
+ {
+  "match": "LEON",
+  "merchant": "Leon",
+  "category": "dining"
+ },
+ {
+  "match": "WETHERSPOON",
+  "merchant": "Wetherspoon",
+  "category": "dining"
+ },
+ {
+  "match": "JD WETHERSPOON",
+  "merchant": "Wetherspoon",
+  "category": "dining"
+ },
+ {
+  "match": "KFC",
+  "merchant": "KFC",
+  "category": "dining"
+ },
+ {
+  "match": "BURGER KING",
+  "merchant": "Burger King",
+  "category": "dining"
+ },
+ {
+  "match": "SUBWAY",
+  "merchant": "Subway",
+  "category": "dining"
+ },
+ {
+  "match": "DISHOOM",
+  "merchant": "Dishoom",
+  "category": "dining"
+ },
+ {
+  "match": "ITSU",
+  "merchant": "itsu",
+  "category": "dining"
+ },
+ {
+  "match": "WASABI",
+  "merchant": "Wasabi",
+  "category": "dining"
+ },
+ {
+  "match": "BOOTS",
+  "merchant": "Boots",
+  "category": "health"
+ },
+ {
+  "match": "SUPERDRUG",
+  "merchant": "Superdrug",
+  "category": "health"
+ },
+ {
+  "match": "LLOYDS PHARMACY",
+  "merchant": "Lloyds Pharmacy",
+  "category": "health"
+ },
+ {
+  "match": "SPECSAVERS",
+  "merchant": "Specsavers",
+  "category": "health"
+ },
+ {
+  "match": "BUPA",
+  "merchant": "Bupa",
+  "category": "health"
+ },
+ {
+  "match": "VITALITY",
+  "merchant": "Vitality",
+  "category": "insurance"
+ },
+ {
+  "match": "AVIVA",
+  "merchant": "Aviva",
+  "category": "insurance"
+ },
+ {
+  "match": "ADMIRAL",
+  "merchant": "Admiral",
+  "category": "insurance"
+ },
+ {
+  "match": "DIRECT LINE",
+  "merchant": "Direct Line",
+  "category": "insurance"
+ },
+ {
+  "match": "LV=",
+  "merchant": "LV=",
+  "category": "insurance"
+ },
+ {
+  "match": "AXA",
+  "merchant": "AXA",
+  "category": "insurance"
+ },
+ {
+  "match": "ARGOS",
+  "merchant": "Argos",
+  "category": "shopping"
+ },
+ {
+  "match": "JOHN LEWIS",
+  "merchant": "John Lewis",
+  "category": "shopping"
+ },
+ {
+  "match": "NEXT RETAIL",
+  "merchant": "Next",
+  "category": "shopping"
+ },
+ {
+  "match": "NEXT DIRECTORY",
+  "merchant": "Next",
+  "category": "shopping"
+ },
+ {
+  "match": "PRIMARK",
+  "merchant": "Primark",
+  "category": "shopping"
+ },
+ {
+  "match": "ZARA",
+  "merchant": "Zara",
+  "category": "shopping"
+ },
+ {
+  "match": "H&M",
+  "merchant": "H&M",
+  "category": "shopping"
+ },
+ {
+  "match": "UNIQLO",
+  "merchant": "Uniqlo",
+  "category": "shopping"
+ },
+ {
+  "match": "ASOS",
+  "merchant": "ASOS",
+  "category": "shopping"
+ },
+ {
+  "match": "EBAY",
+  "merchant": "eBay",
+  "category": "shopping"
+ },
+ {
+  "match": "ETSY",
+  "merchant": "Etsy",
+  "category": "shopping"
+ },
+ {
+  "match": "CURRYS",
+  "merchant": "Currys",
+  "category": "shopping"
+ },
+ {
+  "match": "APPLE STORE",
+  "merchant": "Apple Store",
+  "category": "shopping"
+ },
+ {
+  "match": "APPLE ONLINE",
+  "merchant": "Apple Store",
+  "category": "shopping"
+ },
+ {
+  "match": "JD SPORTS",
+  "merchant": "JD Sports",
+  "category": "shopping"
+ },
+ {
+  "match": "SPORTS DIRECT",
+  "merchant": "Sports Direct",
+  "category": "shopping"
+ },
+ {
+  "match": "DECATHLON",
+  "merchant": "Decathlon",
+  "category": "shopping"
+ },
+ {
+  "match": "TK MAXX",
+  "merchant": "TK Maxx",
+  "category": "shopping"
+ },
+ {
+  "match": "WHSMITH",
+  "merchant": "WHSmith",
+  "category": "shopping"
+ },
+ {
+  "match": "WATERSTONES",
+  "merchant": "Waterstones",
+  "category": "entertainment"
+ },
+ {
+  "match": "IKEA",
+  "merchant": "IKEA",
+  "category": "home"
+ },
+ {
+  "match": "B&Q",
+  "merchant": "B&Q",
+  "category": "home"
+ },
+ {
+  "match": "SCREWFIX",
+  "merchant": "Screwfix",
+  "category": "home"
+ },
+ {
+  "match": "TOOLSTATION",
+  "merchant": "Toolstation",
+  "category": "home"
+ },
+ {
+  "match": "WICKES",
+  "merchant": "Wickes",
+  "category": "home"
+ },
+ {
+  "match": "DUNELM",
+  "merchant": "Dunelm",
+  "category": "home"
+ },
+ {
+  "match": "HOMEBASE",
+  "merchant": "Homebase",
+  "category": "home"
+ },
+ {
+  "match": "ROBERT DYAS",
+  "merchant": "Robert Dyas",
+  "category": "home"
+ },
+ {
+  "match": "VUE",
+  "merchant": "Vue Cinemas",
+  "category": "entertainment"
+ },
+ {
+  "match": "ODEON",
+  "merchant": "Odeon",
+  "category": "entertainment"
+ },
+ {
+  "match": "CINEWORLD",
+  "merchant": "Cineworld",
+  "category": "entertainment"
+ },
+ {
+  "match": "EVERYMAN",
+  "merchant": "Everyman Cinema",
+  "category": "entertainment"
+ },
+ {
+  "match": "TICKETMASTER",
+  "merchant": "Ticketmaster",
+  "category": "entertainment"
+ },
+ {
+  "match": "STEAM",
+  "merchant": "Steam",
+  "category": "entertainment"
+ },
+ {
+  "match": "PLAYSTATION",
+  "merchant": "PlayStation",
+  "category": "entertainment"
+ },
+ {
+  "match": "XBOX",
+  "merchant": "Xbox",
+  "category": "entertainment"
+ },
+ {
+  "match": "NINTENDO",
+  "merchant": "Nintendo",
+  "category": "entertainment"
+ },
+ {
+  "match": "OXFAM",
+  "merchant": "Oxfam",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "JUSTGIVING",
+  "merchant": "JustGiving",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "GOFUNDME",
+  "merchant": "GoFundMe",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "MOONPIG",
+  "merchant": "Moonpig",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "FUNKY PIGEON",
+  "merchant": "Funky Pigeon",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "INTERFLORA",
+  "merchant": "Interflora",
+  "category": "gifts_charity"
+ },
+ {
+  "match": "SHOPIFY",
+  "merchant": "Shopify",
+  "category": "business"
+ },
+ {
+  "match": "GODADDY",
+  "merchant": "GoDaddy",
+  "category": "business"
+ },
+ {
+  "match": "SQUARESPACE",
+  "merchant": "Squarespace",
+  "category": "business"
+ },
+ {
+  "match": "WIX.COM",
+  "merchant": "Wix",
+  "category": "business"
+ },
+ {
+  "match": "CANVA",
+  "merchant": "Canva",
+  "category": "business"
+ },
+ {
+  "match": "XERO",
+  "merchant": "Xero",
+  "category": "business"
+ },
+ {
+  "match": "QUICKBOOKS",
+  "merchant": "QuickBooks",
+  "category": "business"
+ },
+ {
+  "match": "INTUIT",
+  "merchant": "QuickBooks",
+  "category": "business"
+ },
+ {
+  "match": "FREEAGENT",
+  "merchant": "FreeAgent",
+  "category": "business"
+ },
+ {
+  "match": "MAILCHIMP",
+  "merchant": "Mailchimp",
+  "category": "business"
+ },
+ {
+  "match": "ZOOM.US",
+  "merchant": "Zoom",
+  "category": "business"
+ },
+ {
+  "match": "SLACK",
+  "merchant": "Slack",
+  "category": "business"
+ },
+ {
+  "match": "NOTION",
+  "merchant": "Notion",
+  "category": "business"
+ },
+ {
+  "match": "OPENAI",
+  "merchant": "OpenAI",
+  "category": "business"
+ },
+ {
+  "match": "ANTHROPIC",
+  "merchant": "Anthropic",
+  "category": "business"
+ },
+ {
+  "match": "GITHUB",
+  "merchant": "GitHub",
+  "category": "business"
+ },
+ {
+  "match": "VERCEL",
+  "merchant": "Vercel",
+  "category": "business"
+ },
+ {
+  "match": "SUPABASE",
+  "merchant": "Supabase",
+  "category": "business"
+ },
+ {
+  "match": "AWS",
+  "merchant": "Amazon Web Services",
+  "category": "business"
+ },
+ {
+  "match": "AMAZON WEB SERVICES",
+  "merchant": "Amazon Web Services",
+  "category": "business"
+ },
+ {
+  "match": "ROYAL MAIL",
+  "merchant": "Royal Mail",
+  "category": "business"
+ },
+ {
+  "match": "EVRI",
+  "merchant": "Evri",
+  "category": "business"
+ },
+ {
+  "match": "DPD",
+  "merchant": "DPD",
+  "category": "business"
+ },
+ {
+  "match": "PARCELFORCE",
+  "merchant": "Parcelforce",
+  "category": "business"
+ },
+ {
+  "match": "COMPANIES HOUSE",
+  "merchant": "Companies House",
+  "category": "business"
+ },
+ {
+  "match": "HMRC",
+  "merchant": "HMRC",
+  "category": "business"
+ }
+]
