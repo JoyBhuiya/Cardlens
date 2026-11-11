@@ -22,7 +22,13 @@ export async function sendMagicLink(_prev: LoginState, formData: FormData): Prom
   });
   if (error) {
     console.error("signInWithOtp failed", error.message);
-    return { error: error.status === 429 ? "Too many attempts. Please wait a minute and try again." : "We couldn't send the email. Please try again." };
+    if (error.code === "over_email_send_rate_limit") {
+      return { error: "We've sent too many sign-in emails in the last hour. Please try again later, or use the link we already sent." };
+    }
+    if (error.status === 429) {
+      return { error: "Please wait a minute before requesting another link, or use the one we just sent." };
+    }
+    return { error: "We couldn't send the email. Please try again." };
   }
   return { sent: true, email: email.data };
 }
