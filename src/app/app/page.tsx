@@ -4,17 +4,18 @@ import { SpendVsPaymentsChart } from "@/components/charts";
 import { computeMetrics } from "@/lib/analytics";
 import { getAllTransactions, getCustomCategoryNames, getStatementBalances } from "@/lib/data";
 import { formatPence } from "@/lib/money";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
 export default async function OverviewPage() {
-  const { supabase } = await requireUser();
-  const [txns, statements, names, { count: reviewCount }] = await Promise.all([
-    getAllTransactions(supabase),
-    getStatementBalances(supabase),
-    getCustomCategoryNames(supabase),
-    supabase.from("statements").select("id", { count: "exact", head: true }).in("status", ["needs_review", "failed"]),
+  const { db } = await requireUser();
+  const [txns, statements, names, review] = await Promise.all([
+    getAllTransactions(db),
+    getStatementBalances(db),
+    getCustomCategoryNames(db),
+    db.one<{ n: number }>("select count(*) as n from statements where status in ('needs_review', 'failed')"),
   ]);
+  const reviewCount = review?.n ?? 0;
 
   if (txns.length === 0) {
     return (

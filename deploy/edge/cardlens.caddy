@@ -1,0 +1,16 @@
+# Site block for the shared edge Caddy (another stack; it imports one file per site). deploy/ops.sh installs
+# it, validates the whole edge configuration and reloads only if that passes. TLS (Let's Encrypt) happens at
+# the edge; security headers come from the app (next.config.ts). The edge sets X-Forwarded-For, which the app
+# uses for rate limits.
+cardlens.brightnext.eu {
+	# Statement uploads are at most 10 MB (multipart overhead on top).
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy cardlens-app:3000 {
+		# Reading a long PDF statement can take up to 300 s (src/app/api/statements/[id]/process/route.ts).
+		transport http {
+			response_header_timeout 320s
+		}
+	}
+}

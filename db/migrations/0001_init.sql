@@ -1,7 +1,69 @@
--- Cardlens initial schema
--- All money is whole pence (bigint). Every user-owned table has user_id with RLS auth.uid() = user_id.
+-- Cardlens initial schema (plain Postgres 16; ported from the Supabase version, same tables).
+-- All money is whole pence (bigint). Every user-owned table has user_id with RLS:
+-- user_id = app.current_user_id(), which the app sets per transaction (src/lib/db/index.ts).
+-- Runs as the database owner. The app connects as cardlens_app, which is not the owner, so RLS applies to it.
 
 create extension if not exists pgcrypto;
+
+do $$ begin
+  if not exists (select from pg_roles where rolname = 'cardlens_app') then
+    create role cardlens_app login;
+  end if;
+end $$;
+
+create schema app;
+-- The signed-in user for this transaction, or null. Set with set_config('app.user_id', <uuid>, true).
+create function app.current_user_id() returns uuid
+language sql stable set search_path = '' as $$
+  select nullif(current_setting('app.user_id', true), '')::uuid
+$$;
+
+-- ───────────────────────── Auth (Better Auth core schema, uuid ids) ─────────────────────────
+create table "user" (
+  "id" uuid default gen_random_uuid() not null primary key,
+  "name" text not null,
+  "email" text not null unique,
+  "emailVerified" boolean not null,
+  "image" text,
+  "createdAt" timestamptz default current_timestamp not null,
+  "updatedAt" timestamptz default current_timestamp not null
+);
+create table "session" (
+  "id" uuid default gen_random_uuid() not null primary key,
+  "expiresAt" timestamptz not null,
+  "token" text not null unique,
+  "createdAt" timestamptz default current_timestamp not null,
+  "updatedAt" timestamptz not null,
+  "ipAddress" text,
+  "userAgent" text,
+  "userId" uuid not null references "user" ("id") on delete cascade
+);
+create table "account" (
+  "id" uuid default gen_random_uuid() not null primary key,
+  "accountId" text not null,
+  "providerId" text not null,
+  "userId" uuid not null references "user" ("id") on delete cascade,
+  "accessToken" text,
+  "refreshToken" text,
+  "idToken" text,
+  "accessTokenExpiresAt" timestamptz,
+  "refreshTokenExpiresAt" timestamptz,
+  "scope" text,
+  "password" text,
+  "createdAt" timestamptz default current_timestamp not null,
+  "updatedAt" timestamptz not null
+);
+create table "verification" (
+  "id" uuid default gen_random_uuid() not null primary key,
+  "identifier" text not null,
+  "value" text not null,
+  "expiresAt" timestamptz not null,
+  "createdAt" timestamptz default current_timestamp not null,
+  "updatedAt" timestamptz default current_timestamp not null
+);
+create index "session_userId_idx" on "session" ("userId");
+create index "account_userId_idx" on "account" ("userId");
+create index "verification_identifier_idx" on "verification" ("identifier");
 
 -- ───────────────────────── Enums ─────────────────────────
 create type public.waitlist_segment as enum ('side_business', 'personal', 'professional');
@@ -19,15 +81,12 @@ create table public.waitlist (
   source text check (char_length(source) <= 100),
   created_at timestamptz not null default now()
 );
-alter table public.waitlist enable row level security;
--- Anonymous insert only; nobody can read through the API.
-create policy "waitlist_insert_anyone" on public.waitlist
-  for insert to anon, authenticated with check (true);
+-- Written only by the server action (rate-limited); the app role may insert but not read it.
 
 -- ───────────────────────── Cards ─────────────────────────
 create table public.cards (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references "user"(id) on delete cascade,
   issuer text not null check (char_length(issuer) between 1 and 80),
   nickname text check (char_length(nickname) <= 80),
   last4 char(4) check (last4 ~ '^[0-9]{4}$'),
@@ -38,7 +97,7 @@ create index cards_user_idx on public.cards(user_id);
 -- ───────────────────────── Statements ─────────────────────────
 create table public.statements (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references "user"(id) on delete cascade,
   card_id uuid not null references public.cards(id) on delete cascade,
   file_path text,
   file_name text,
@@ -66,7 +125,7 @@ create index statements_card_idx on public.statements(card_id);
 -- ───────────────────────── Categories ─────────────────────────
 create table public.categories (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
+  user_id uuid references "user"(id) on delete cascade,
   slug text not null check (slug ~ '^[a-z0-9_]{2,40}$'),
   name text not null check (char_length(name) between 1 and 60),
   "group" public.category_group not null,
@@ -80,7 +139,7 @@ create unique index categories_user_slug on public.categories(user_id, slug) whe
 -- ───────────────────────── Transactions ─────────────────────────
 create table public.transactions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references "user"(id) on delete cascade,
   statement_id uuid not null references public.statements(id) on delete cascade,
   card_id uuid not null references public.cards(id) on delete cascade,
   posted_on date not null,
@@ -105,7 +164,7 @@ create index transactions_merchant on public.transactions(user_id, merchant);
 -- ───────────────────────── Merchant rules ─────────────────────────
 create table public.merchant_rules (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references "user"(id) on delete cascade,
   pattern text not null check (char_length(pattern) between 2 and 120),
   merchant text not null check (char_length(merchant) between 1 and 120),
   category text,
@@ -117,7 +176,7 @@ create unique index merchant_rules_user_pattern on public.merchant_rules(user_id
 -- ───────────────────────── Reports ─────────────────────────
 create table public.reports (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references "user"(id) on delete cascade,
   year int not null check (year between 2000 and 2100),
   metrics jsonb not null,
   summary jsonb not null,
@@ -142,25 +201,25 @@ alter table public.transactions enable row level security;
 alter table public.merchant_rules enable row level security;
 alter table public.reports enable row level security;
 
-create policy "cards_owner" on public.cards for all to authenticated
-  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-create policy "statements_owner" on public.statements for all to authenticated
-  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-create policy "transactions_owner" on public.transactions for all to authenticated
-  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-create policy "merchant_rules_owner" on public.merchant_rules for all to authenticated
-  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-create policy "reports_owner" on public.reports for all to authenticated
-  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "cards_owner" on public.cards for all to cardlens_app
+  using ((select app.current_user_id()) = user_id) with check ((select app.current_user_id()) = user_id);
+create policy "statements_owner" on public.statements for all to cardlens_app
+  using ((select app.current_user_id()) = user_id) with check ((select app.current_user_id()) = user_id);
+create policy "transactions_owner" on public.transactions for all to cardlens_app
+  using ((select app.current_user_id()) = user_id) with check ((select app.current_user_id()) = user_id);
+create policy "merchant_rules_owner" on public.merchant_rules for all to cardlens_app
+  using ((select app.current_user_id()) = user_id) with check ((select app.current_user_id()) = user_id);
+create policy "reports_owner" on public.reports for all to cardlens_app
+  using ((select app.current_user_id()) = user_id) with check ((select app.current_user_id()) = user_id);
 
-create policy "categories_read" on public.categories for select to authenticated
-  using (is_system or (select auth.uid()) = user_id);
-create policy "categories_write_own" on public.categories for insert to authenticated
-  with check (not is_system and (select auth.uid()) = user_id);
-create policy "categories_update_own" on public.categories for update to authenticated
-  using (not is_system and (select auth.uid()) = user_id) with check (not is_system and (select auth.uid()) = user_id);
-create policy "categories_delete_own" on public.categories for delete to authenticated
-  using (not is_system and (select auth.uid()) = user_id);
+create policy "categories_read" on public.categories for select to cardlens_app
+  using (is_system or (select app.current_user_id()) = user_id);
+create policy "categories_write_own" on public.categories for insert to cardlens_app
+  with check (not is_system and (select app.current_user_id()) = user_id);
+create policy "categories_update_own" on public.categories for update to cardlens_app
+  using (not is_system and (select app.current_user_id()) = user_id) with check (not is_system and (select app.current_user_id()) = user_id);
+create policy "categories_delete_own" on public.categories for delete to cardlens_app
+  using (not is_system and (select app.current_user_id()) = user_id);
 
 -- ───────────────────────── System categories ─────────────────────────
 insert into public.categories (slug, name, "group", is_system) values
@@ -188,15 +247,11 @@ insert into public.categories (slug, name, "group", is_system) values
   ('transfers', 'Balance transfers', 'financial', true),
   ('uncategorised', 'Uncategorised', 'lifestyle', true);
 
--- ───────────────────────── Storage: private statements bucket ─────────────────────────
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('statements', 'statements', false, 10485760,
-        array['application/pdf', 'text/csv', 'application/vnd.ms-excel', 'text/plain'])
-on conflict (id) do nothing;
-
-create policy "statements_files_select" on storage.objects for select to authenticated
-  using (bucket_id = 'statements' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "statements_files_insert" on storage.objects for insert to authenticated
-  with check (bucket_id = 'statements' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "statements_files_delete" on storage.objects for delete to authenticated
-  using (bucket_id = 'statements' and (storage.foldername(name))[1] = (select auth.uid())::text);
+-- ───────────────────────── Grants for the app role ─────────────────────────
+-- Statement files live on disk (STORAGE_DIR), not in the database.
+grant usage on schema public, app to cardlens_app;
+grant execute on function app.current_user_id() to cardlens_app;
+grant select, insert, update, delete on "user", "session", "account", "verification" to cardlens_app;
+grant select, insert, update, delete on public.cards, public.statements, public.categories, public.transactions,
+  public.merchant_rules, public.reports to cardlens_app;
+grant insert on public.waitlist to cardlens_app;

@@ -8,7 +8,7 @@ import type { Metrics } from "@/lib/analytics";
 import { getYears } from "@/lib/data";
 import { formatPence } from "@/lib/money";
 import type { AnnualSummary } from "@/lib/summary/schema";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
 export const maxDuration = 180; // report generation (server action) calls Claude
@@ -22,11 +22,14 @@ export default async function ReportPage({ params }: { params: Promise<{ year: s
   const { year: yearStr } = await params;
   const year = Number(yearStr);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) notFound();
-  const { supabase } = await requireUser();
-  const [years, { data: report }, { data: latestTxn }] = await Promise.all([
-    getYears(supabase),
-    supabase.from("reports").select("metrics, summary, model, summary_source, created_at").eq("year", year).maybeSingle(),
-    supabase.from("transactions").select("created_at").order("created_at", { ascending: false }).limit(1),
+  const { db } = await requireUser();
+  const [years, report, latestTxn] = await Promise.all([
+    getYears(db),
+    db.one<{ metrics: unknown; summary: unknown; model: string | null; summary_source: "ai" | "template"; created_at: string }>(
+      "select metrics, summary, model, summary_source, created_at from reports where year = $1",
+      [year],
+    ),
+    db.one<{ created_at: string }>("select max(created_at) as created_at from transactions"),
   ]);
 
   const yearNav = (
@@ -61,7 +64,7 @@ export default async function ReportPage({ params }: { params: Promise<{ year: s
 
   const m = report.metrics as Metrics;
   const s = report.summary as AnnualSummary;
-  const stale = latestTxn?.[0] && latestTxn[0].created_at > report.created_at;
+  const stale = !!latestTxn?.created_at && latestTxn.created_at > report.created_at;
 
   return (
     <article>

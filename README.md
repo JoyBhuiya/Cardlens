@@ -2,31 +2,36 @@
 
 Turns up to 12 months of UK credit card statements into a reconciled annual report: spend vs payments, where the money goes, and costed saving ideas with a professional summary.
 
-Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu-west-2) · Claude API · Vercel (`lhr1`).
+Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row-level security · Better Auth (magic link) · Claude API · Docker on a VPS at `cardlens.brightnext.eu`.
 
 ## Setup
 
-1. **Supabase**: create a project in **eu-west-2 (London)**. Run `supabase/migrations/0001_init.sql` in the SQL editor (or `supabase db push`). It creates all tables, RLS policies, system categories and the private `statements` storage bucket.
-2. **Auth**: Supabase → Authentication → URL configuration: set Site URL to your domain and add `http://localhost:3000/auth/confirm` and `https://YOUR-DOMAIN/auth/confirm` to redirect URLs. Email (magic link) provider on.
-3. **Env**: `cp .env.example .env.local` and fill in the Supabase URL, anon key, service-role key and Anthropic key.
-4. `npm install && npm run dev` → http://localhost:3000
+1. `cp .env.example .env.local` and fill in the values (see the comments in the file).
+2. Postgres: `docker run -d --name cardlens-pg -e POSTGRES_USER=cardlens -e POSTGRES_PASSWORD=<pw> -e POSTGRES_DB=cardlens -p 55432:5432 postgres:16-alpine`.
+3. `npm install && npm run db:migrate` (uses `MIGRATION_DATABASE_URL`; `APP_DB_PASSWORD` sets the app role's password).
+4. `npm run dev` → http://localhost:3000. Sign-in mails land in `MAIL_OUTBOX_DIR` as JSON files when Mailjet isn't configured.
+
+Deploying: [docs/runbooks/deploy.md](docs/runbooks/deploy.md). Why no Supabase: [docs/adr/0001](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md).
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Local dev server |
-| `npm run check` | Typecheck, lint, unit tests and production build |
-| `npm test` | Vitest unit tests (pipeline maths, reconciliation, dedupe, CSV, analytics, summary validator) |
-| `npm run test:e2e` | Playwright at 1440 px and 375 px (landing, waitlist, auth guard, security headers) |
+| `npm run check` | `scripts/verify.sh`: exactly what CI runs (typecheck, lint, unit, throwaway Postgres + DB tests, build, Playwright). Needs Docker |
+| `npm test` | Vitest unit tests (pipeline maths, reconciliation, dedupe, CSV, analytics, summary validator, storage) |
+| `npm run test:db` | Database tests: RLS isolation, spend caps, waitlist, pipeline on Postgres (needs `DATABASE_URL`; run through verify) |
+| `npm run test:e2e` | Playwright at 1440 px and 375 px against `E2E_BASE_URL`, including the signed-in upload → report journey |
+| `npm run db:migrate` | Applies `db/migrations/*.sql` once each |
 | `npm run schemas` | Regenerates `schemas/*.schema.json` from the Zod sources |
+| `bash deploy/tests/local-stack.sh` | The deploy path on the laptop: real `ops.sh` release behind a mock edge, e2e through it, forced rollback |
 
 ## How it works
 
 ```
-browser ──upload──▶ Supabase Storage (private, <user_id>/…)
+browser ──POST /api/statements/upload──▶ disk volume (<user_id>/<uuid>.pdf|csv, owner-checked)
    │
-   └─POST /api/statements/:id/process (up to 300 s per file, London)
+   └─POST /api/statements/:id/process (up to 300 s per file)
         1 Upload      statements row, status uploaded
         2 Extract     PDF → Claude document block → schema-valid JSON  (CSV → papaparse + column mapping)
         3 Mask/normalise  last-4 only, ISO dates, pence, merchant clean-up (user rules → data/merchant-aliases.json)
@@ -38,7 +43,9 @@ browser ──upload──▶ Supabase Storage (private, <user_id>/…)
 ```
 
 - **Every number** in the report is computed in `src/lib/analytics.ts`. Claude only writes words around the metrics; `src/lib/summary/validate.ts` rejects any £ figure that isn't in, or arithmetically derived from, the metrics, retries once, then falls back to `template.ts`.
-- **Security**: browser only ever holds the anon key; all AI and admin work is server-side; RLS on every table and storage path; strict CSP, HSTS, `X-Frame-Options: DENY`, no third-party scripts (fonts are self-hosted); 12 files/batch, 10 MB/file, 60 uploads/user/day; honeypot on the waitlist.
+- **Security**: the browser talks only to our origin; all AI and database work is server-side. RLS on every user table: the app connects as `cardlens_app` and sets `app.user_id` per transaction (`src/lib/db`). Strict CSP, HSTS, `X-Frame-Options: DENY`, no third-party scripts (fonts are self-hosted).
+- **Limits** (append-only `usage_events` ledger, so deleting statements doesn't reset them): 12 files/batch, 10 MB/file, `UPLOADS_PER_DAY` per user, `AI_CALLS_PER_USER_MONTH` per user, `AI_CALLS_PER_DAY` across everyone (kill switch). A parsed or in-flight statement can't be reprocessed. Waitlist: honeypot plus 5 sign-ups per hashed IP per hour. Token counts per Claude call are recorded for unit economics.
+- **Closed beta**: `SIGNIN_ALLOWLIST` limits who receives a sign-in link.
 - **Models** are set by env: `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_CATEGORISE_MODEL`.
 
 ## Layout
@@ -51,11 +58,13 @@ src/lib/summary/         schema, generate, validate, template
 src/prompts/             extract-statement, categorise, annual-summary
 src/data/merchant-aliases.json   ~200 UK merchants → name + category
 design/tokens.css        colour tokens (light + dark)
-supabase/migrations/     0001_init.sql
+db/migrations/           0001_init.sql (schema, RLS), 0002 (usage ledger, rate limits)
+deploy/                  compose stack, edge site, ops.sh, setup-vps.sh, deploy.sh, tests/
+src/lib/db, auth.ts, session.ts, storage.ts, usage.ts   Postgres, Better Auth, files, limits
 fixtures/                sample statement extraction (reconciles) and CSVs
-tests/unit, tests/e2e
+tests/unit, tests/db, tests/e2e
 ```
 
 ## Before launch
 
-ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]` placeholders; test with one real (redacted) statement from each of the first 4–5 issuers; set Vercel env vars and deploy.
+ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]` placeholders and update the processor list on `/privacy` (hosting is now our own VPS; processors are Anthropic and Mailjet); test with one real (redacted) statement from each of the first 4–5 issuers; complete the owner steps in [docs/runbooks/deploy.md](docs/runbooks/deploy.md).

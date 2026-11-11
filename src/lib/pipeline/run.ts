@@ -1,8 +1,11 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { extractStatementPdf } from "@/lib/ai/extract";
 import { categoriseMerchants } from "@/lib/ai/categorise";
+import type { Db, UserDb } from "@/lib/db";
+import { UserError } from "@/lib/errors";
+import { readStoredFile, removeFile } from "@/lib/storage";
 import type { MerchantRule } from "@/lib/types";
+import { aiMeter } from "@/lib/usage";
 import { parseStatementCsv } from "./csv";
 import { safeLast4 } from "./normalise";
 import { detectRecurring } from "./recurring";
@@ -16,34 +19,83 @@ export interface RunResult {
   error?: string;
 }
 
+const TXN_COLUMNS = [
+  "user_id",
+  "statement_id",
+  "card_id",
+  "posted_on",
+  "description_raw",
+  "merchant",
+  "amount_pence",
+  "direction",
+  "kind",
+  "category",
+  "category_source",
+  "is_business",
+  "is_recurring",
+  "foreign_currency",
+  "dedupe_hash",
+] as const;
+type TxnInsert = Record<(typeof TXN_COLUMNS)[number], unknown>;
+
+/** Inserts rows, skipping lines already imported from an overlapping statement. Returns how many were new. */
+async function insertTransactions(db: Db, rows: TxnInsert[]): Promise<number> {
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const params: unknown[] = [];
+    const values = rows.slice(i, i + 500).map((r) => `(${TXN_COLUMNS.map((c) => `$${params.push(r[c])}`).join(", ")})`);
+    const res = await db.query(
+      `insert into transactions (${TXN_COLUMNS.join(", ")}) values ${values.join(", ")}
+       on conflict (user_id, dedupe_hash) do nothing returning id`,
+      params,
+    );
+    inserted += res.length;
+  }
+  return inserted;
+}
+
+const fail = (error: string): RunResult => ({ status: "failed", transactionCount: 0, duplicatesDropped: 0, issues: [], error });
+
 /** Runs extract → mask/normalise → reconcile → classify → categorise for one statement, as the signed-in user (RLS). */
-export async function processStatement(supabase: SupabaseClient, userId: string, statementId: string): Promise<RunResult> {
-  const { data: st, error: stErr } = await supabase
-    .from("statements")
-    .select("id, card_id, file_path, file_type, keep_file, status")
-    .eq("id", statementId)
-    .single();
-  if (stErr || !st) return { status: "failed", transactionCount: 0, duplicatesDropped: 0, issues: [], error: "Statement not found." };
-  if (!st.file_path) {
-    return { status: "failed", transactionCount: 0, duplicatesDropped: 0, issues: [], error: "The original file is no longer stored. Upload it again to reprocess." };
+export async function processStatement(db: UserDb, userId: string, statementId: string): Promise<RunResult> {
+  // Claim the statement atomically. Only new, failed or needs-review statements, or ones stuck for 5+ minutes,
+  // run: a parsed statement or one already in flight is refused, because every run can cost a Claude request.
+  const st = await db.one<{ card_id: string; file_path: string; file_type: "pdf" | "csv"; keep_file: boolean }>(
+    `update statements set status = 'extracting', error = null
+     where id = $1 and file_path is not null
+       and (status in ('uploaded', 'failed', 'needs_review')
+            or (status in ('extracting', 'processing') and updated_at < now() - interval '5 minutes'))
+     returning card_id, file_path, file_type, keep_file`,
+    [statementId],
+  );
+  if (!st) {
+    const row = await db.one<{ status: string; file_path: string | null }>("select status, file_path from statements where id = $1", [statementId]);
+    if (!row) return fail("Statement not found.");
+    if (!row.file_path) return fail("The original file is no longer stored. Upload it again to reprocess.");
+    return fail(row.status === "parsed" ? "This statement is already processed." : "This statement is already being processed.");
   }
 
-  const setStatus = (patch: Record<string, unknown>) => supabase.from("statements").update(patch).eq("id", statementId);
+  const setStatus = (patch: Record<string, unknown>) => {
+    const keys = Object.keys(patch); // fixed column names from this file only, never user input
+    return db.query(`update statements set ${keys.map((k, i) => `${k} = $${i + 2}`).join(", ")} where id = $1`, [
+      statementId,
+      ...keys.map((k) => patch[k]),
+    ]);
+  };
 
   try {
-    await setStatus({ status: "extracting", error: null });
-
-    const { data: file, error: dlErr } = await supabase.storage.from("statements").download(st.file_path);
-    if (dlErr || !file) throw new Error("Could not read the uploaded file.");
+    const file = await readStoredFile(userId, st.file_path).catch(() => {
+      throw new UserError("Could not read the uploaded file.");
+    });
 
     // ── Step 2: extract ──
     let header: StatementHeader;
     let lines: RawLine[];
     if (st.file_type === "pdf") {
-      const { data } = await extractStatementPdf(await file.arrayBuffer());
+      const { data } = await extractStatementPdf(file, aiMeter(db, userId, "extract"));
       ({ header, lines } = fromExtraction(data));
     } else {
-      const csv = parseStatementCsv(await file.text());
+      const csv = parseStatementCsv(file.toString("utf8"));
       header = {
         issuer: null,
         card_last4: null,
@@ -56,23 +108,19 @@ export async function processStatement(supabase: SupabaseClient, userId: string,
       };
       lines = csv.transactions.map((t) => ({ date: t.posted_on, description: t.description_raw, amount_pence: t.amount_pence, direction: t.direction }));
     }
-    if (lines.length === 0) throw new Error("No transactions were found in this file.");
+    if (lines.length === 0) throw new UserError("No transactions were found in this file.");
 
     await setStatus({ status: "processing" });
 
     // ── Steps 3–6 ──
-    const { data: rulesData } = await supabase.from("merchant_rules").select("pattern, merchant, category, is_business");
-    const rules = (rulesData ?? []) as MerchantRule[];
+    const rules = await db.query<MerchantRule>("select pattern, merchant, category, is_business from merchant_rules");
     const result = transformStatement(st.card_id, header, lines, rules);
     let txns = result.transactions;
     if (result.unknownMerchants.length > 0) {
-      txns = applyAiCategories(txns, await categoriseMerchants(result.unknownMerchants));
+      txns = applyAiCategories(txns, await categoriseMerchants(result.unknownMerchants, aiMeter(db, userId, "categorise")));
     }
 
-    // Reprocessing replaces this statement's lines.
-    await supabase.from("transactions").delete().eq("statement_id", statementId);
-
-    const rows = txns.map((t) => ({
+    const rows: TxnInsert[] = txns.map((t) => ({
       user_id: userId,
       statement_id: statementId,
       card_id: st.card_id,
@@ -89,22 +137,18 @@ export async function processStatement(supabase: SupabaseClient, userId: string,
       foreign_currency: t.foreign_currency,
       dedupe_hash: t.dedupe_hash,
     }));
-    let inserted = 0;
-    for (let i = 0; i < rows.length; i += 500) {
-      const { data: ins, error: insErr } = await supabase
-        .from("transactions")
-        .upsert(rows.slice(i, i + 500), { onConflict: "user_id,dedupe_hash", ignoreDuplicates: true })
-        .select("id");
-      if (insErr) throw new Error(`Could not save transactions: ${insErr.message}`);
-      inserted += ins?.length ?? 0;
-    }
+    // Reprocessing replaces this statement's lines, all or nothing.
+    const inserted = await db.tx(async (tx) => {
+      await tx.query("delete from transactions where statement_id = $1", [statementId]);
+      return insertTransactions(tx, rows);
+    });
     const duplicatesDropped = rows.length - inserted;
 
     // Card last-4 from the statement, if the card has none yet.
     const last4 = safeLast4(header.card_last4);
-    if (last4) await supabase.from("cards").update({ last4 }).eq("id", st.card_id).is("last4", null);
+    if (last4) await db.query("update cards set last4 = $2 where id = $1 and last4 is null", [st.card_id, last4]);
 
-    await refreshRecurring(supabase);
+    await refreshRecurring(db);
 
     const rec = result.reconciliation;
     const status: RunResult["status"] = rec.reconciled === false ? "needs_review" : "parsed";
@@ -112,7 +156,7 @@ export async function processStatement(supabase: SupabaseClient, userId: string,
     if (duplicatesDropped > 0) issues.push(`${duplicatesDropped} line(s) already imported from an overlapping statement were skipped.`);
 
     const deleteFile = status === "parsed" && !st.keep_file;
-    if (deleteFile) await supabase.storage.from("statements").remove([st.file_path]);
+    if (deleteFile) await removeFile(userId, st.file_path);
 
     await setStatus({
       status,
@@ -132,24 +176,22 @@ export async function processStatement(supabase: SupabaseClient, userId: string,
     });
     return { status, transactionCount: inserted, duplicatesDropped, issues };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Processing failed.";
+    // Show only messages written for users; log the rest and show a generic one.
+    const message = err instanceof UserError ? err.message : "Processing failed. Please try again.";
+    if (!(err instanceof UserError)) console.error("processStatement failed", err instanceof Error ? err.message : err);
     await setStatus({ status: "failed", error: message });
-    return { status: "failed", transactionCount: 0, duplicatesDropped: 0, issues: [], error: message };
+    return fail(message);
   }
 }
 
 /** Re-flag recurring charges across all of the user's purchases. */
-export async function refreshRecurring(supabase: SupabaseClient) {
-  const { data } = await supabase
-    .from("transactions")
-    .select("merchant, category, amount_pence, posted_on, kind")
-    .eq("kind", "purchase")
-    .limit(20000);
-  const recurring = detectRecurring(data ?? []).map((r) => r.merchant);
-  await supabase.from("transactions").update({ is_recurring: false }).eq("is_recurring", true);
-  if (recurring.length) {
-    for (let i = 0; i < recurring.length; i += 100) {
-      await supabase.from("transactions").update({ is_recurring: true }).eq("kind", "purchase").in("merchant", recurring.slice(i, i + 100));
-    }
-  }
+export async function refreshRecurring(db: UserDb) {
+  const data = await db.query<{ merchant: string; category: string; amount_pence: number; posted_on: string; kind: "purchase" }>(
+    "select merchant, category, amount_pence, posted_on, kind from transactions where kind = 'purchase' limit 20000",
+  );
+  const recurring = detectRecurring(data).map((r) => r.merchant);
+  await db.tx(async (tx) => {
+    await tx.query("update transactions set is_recurring = false where is_recurring");
+    if (recurring.length) await tx.query("update transactions set is_recurring = true where kind = 'purchase' and merchant = any($1)", [recurring]);
+  });
 }

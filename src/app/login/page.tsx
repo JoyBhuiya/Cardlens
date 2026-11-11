@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/session";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const { next, error } = await searchParams;
+  if (await getUser()) redirect("/app");
   return (
     <div className="flex min-h-screen flex-col bg-surface-2">
       <header className="mx-auto w-full max-w-[1160px] px-6 py-5">

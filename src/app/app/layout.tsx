@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Logo } from "@/components/logo";
 import { AppNav } from "@/components/app-nav";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Overview", robots: { index: false } };
 

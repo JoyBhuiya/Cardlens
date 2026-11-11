@@ -5,7 +5,7 @@ import { StatementActions } from "@/components/statement-actions";
 import { cardLabel, getCards } from "@/lib/data";
 import { formatPence } from "@/lib/money";
 import type { StatementStatus } from "@/lib/types";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Statements" };
@@ -25,17 +25,40 @@ function isInterrupted(status: string, updatedAt: string): boolean {
   return inProgress && Date.now() - new Date(updatedAt).getTime() > 5 * 60 * 1000;
 }
 
+interface StatementListRow {
+  id: string;
+  card_id: string;
+  file_name: string | null;
+  file_type: "pdf" | "csv";
+  file_path: string | null;
+  status: StatementStatus;
+  issuer: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  opening_balance_pence: number | null;
+  closing_balance_pence: number | null;
+  total_debits_pence: number | null;
+  total_credits_pence: number | null;
+  reconciled: boolean | null;
+  reconciliation_diff_pence: number | null;
+  transaction_count: number;
+  duplicates_dropped: number;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default async function StatementsPage() {
-  const { supabase } = await requireUser();
-  const [cards, { data }] = await Promise.all([
-    getCards(supabase),
-    supabase
-      .from("statements")
-      .select("id, card_id, file_name, file_type, file_path, status, issuer, period_start, period_end, opening_balance_pence, closing_balance_pence, total_debits_pence, total_credits_pence, reconciled, reconciliation_diff_pence, transaction_count, duplicates_dropped, error, created_at, updated_at")
-      .order("period_end", { ascending: false, nullsFirst: true })
-      .order("created_at", { ascending: false }),
+  const { db } = await requireUser();
+  const [cards, statements] = await Promise.all([
+    getCards(db),
+    db.query<StatementListRow>(
+      `select id, card_id, file_name, file_type, file_path, status, issuer, period_start, period_end, opening_balance_pence,
+              closing_balance_pence, total_debits_pence, total_credits_pence, reconciled, reconciliation_diff_pence,
+              transaction_count, duplicates_dropped, error, created_at, updated_at
+       from statements order by period_end desc nulls first, created_at desc`,
+    ),
   ]);
-  const statements = data ?? [];
   const cardMap = new Map(cards.map((c) => [c.id, cardLabel(c)]));
 
   if (!statements.length) {

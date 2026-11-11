@@ -1,0 +1,102 @@
+# Cardlens on a shared VPS behind the host's edge Caddy (another stack, which owns ports 80/443 and TLS
+# and imports one site file per app; ours is deploy/edge/cardlens.caddy). Nothing here publishes a port.
+#
+# Server layout (deploy/setup-vps.sh creates it):
+#   /opt/cardlens/stack/    this directory plus .env (0600, generated secrets; never committed)
+#   /opt/cardlens/src/      one directory per deployed commit (the image build context)
+#   /opt/cardlens/backups/  nightly and pre-migration database dumps
+# Operated with deploy/ops.sh (release, rollback, status, logs, backup).
+name: cardlens
+
+services:
+  cardlens-app:
+    image: cardlens-app:${APP_VERSION:?set by ops.sh}
+    restart: unless-stopped
+    depends_on:
+      cardlens-postgres: { condition: service_healthy }
+    environment:
+      SITE_URL: ${SITE_URL:?}
+      DATABASE_URL: postgres://cardlens_app:${APP_DB_PASSWORD:?}@cardlens-postgres:5432/cardlens
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+      IP_HASH_SALT: ${IP_HASH_SALT:?}
+      SIGNIN_ALLOWLIST: ${SIGNIN_ALLOWLIST:-}
+      MAILJET_API_KEY: ${MAILJET_API_KEY:-}
+      MAILJET_API_SECRET: ${MAILJET_API_SECRET:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_EXTRACT_MODEL: ${ANTHROPIC_EXTRACT_MODEL:-claude-sonnet-5-5}
+      ANTHROPIC_SUMMARY_MODEL: ${ANTHROPIC_SUMMARY_MODEL:-claude-sonnet-5-5}
+      ANTHROPIC_CATEGORISE_MODEL: ${ANTHROPIC_CATEGORISE_MODEL:-claude-haiku-5-5}
+      UPLOADS_PER_DAY: ${UPLOADS_PER_DAY:-60}
+      AI_CALLS_PER_USER_MONTH: ${AI_CALLS_PER_USER_MONTH:-200}
+      AI_CALLS_PER_DAY: ${AI_CALLS_PER_DAY:-1000}
+    volumes:
+      - statements:/data/statements
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    pids_limit: 256
+    networks: [backend, edge]
+    logging: { driver: local, options: { max-size: 10m, max-file: "3" } }
+
+  cardlens-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cardlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: cardlens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardlens -d cardlens"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    shm_size: 128m
+    networks: [backend]
+    logging: { driver: local, options: { max-size: 10m, max-file: "3" } }
+
+  # Nightly dump into ./../backups, kept 14 days. Off-server copies are an owner action (docs/runbooks/deploy.md).
+  cardlens-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      cardlens-postgres: { condition: service_healthy }
+    environment:
+      PGHOST: cardlens-postgres
+      PGUSER: cardlens
+      PGDATABASE: cardlens
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - ${BACKUP_DIR:-../backups}:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        umask 077
+        while true; do
+          f=/backups/nightly-$$(date -u +%Y%m%dT%H%M%SZ).dump
+          if pg_dump -Fc -f "$$f.part"; then mv "$$f.part" "$$f"; echo "backup ok $$f"; else rm -f "$$f.part"; echo "backup FAILED"; fi
+          find /backups -name 'nightly-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    networks: [backend]
+    logging: { driver: local, options: { max-size: 10m, max-file: "3" } }
+
+volumes:
+  pgdata:
+  statements:
+
+networks:
+  # Internal: Postgres has no route out and is reachable only from this stack.
+  backend:
+    internal: true
+  # Shared with the edge Caddy; also the app's way out to Anthropic and Mailjet.
+  edge:
+    external: true
