@@ -4,7 +4,7 @@ import { processStatement } from "@/lib/pipeline/run";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // long statements take ~60s+ for Claude to read; Pro plan allows 300s
+export const maxDuration = 300; // long statements take ~60s+ for Claude to read; the reverse proxy must allow this too
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

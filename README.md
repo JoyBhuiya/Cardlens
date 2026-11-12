@@ -2,7 +2,7 @@
 
 Turns up to 12 months of UK credit card statements into a reconciled annual report: spend vs payments, where the money goes, and costed saving ideas with a professional summary.
 
-Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu-west-2) · Claude API · Vercel (`lhr1`).
+Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu-west-2) · Claude API · self-hosted at https://cardlens.brightnext.eu (deployed from GitHub) · Mailjet for auth emails.
 
 ## Setup
 
@@ -10,6 +10,15 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu
 2. **Auth**: Supabase → Authentication → URL configuration: set Site URL to your domain and add `http://localhost:3000/auth/confirm` and `https://YOUR-DOMAIN/auth/confirm` to redirect URLs. Email (magic link) provider on.
 3. **Env**: `cp .env.example .env.local` and fill in the Supabase URL, anon key, service-role key and Anthropic key.
 4. `npm install && npm run dev` → http://localhost:3000
+
+## Hosting
+
+Production runs on Brightnext's own server at **https://cardlens.brightnext.eu**, deployed from `main` on GitHub (`npm ci && npm run build && npm run start`, Node 20.9+).
+
+- **Env vars:** all of `.env.example`, with `NEXT_PUBLIC_SITE_URL=https://cardlens.brightnext.eu`. `NEXT_PUBLIC_*` values are baked in at build time — rebuild after changing them.
+- **Timeouts:** statement processing can take 1–2 minutes per PDF; the reverse proxy (e.g. nginx `proxy_read_timeout`) must allow at least 300 s for `/api/statements/*`.
+- **HTTPS required:** the app sends HSTS.
+- **Supabase auth:** Site URL `https://cardlens.brightnext.eu`, redirect URL `https://cardlens.brightnext.eu/auth/confirm`; auth emails sent via Mailjet SMTP (Supabase → Authentication → Emails).
 
 ## Scripts
 
@@ -26,7 +35,7 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Supabase (London, eu
 ```
 browser ──upload──▶ Supabase Storage (private, <user_id>/…)
    │
-   └─POST /api/statements/:id/process (up to 300 s per file, London)
+   └─POST /api/statements/:id/process (up to 300 s per file — reverse-proxy timeout must allow this)
         1 Upload      statements row, status uploaded
         2 Extract     PDF → Claude document block → schema-valid JSON  (CSV → papaparse + column mapping)
         3 Mask/normalise  last-4 only, ISO dates, pence, merchant clean-up (user rules → data/merchant-aliases.json)
@@ -58,4 +67,4 @@ tests/unit, tests/e2e
 
 ## Before launch
 
-ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]` placeholders; test with one real (redacted) statement from each of the first 4–5 issuers; set Vercel env vars and deploy.
+ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]` placeholders; test with one real (redacted) statement from each of the first 4–5 issuers; keep the server's env vars in step with `.env.example`.

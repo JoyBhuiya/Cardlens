@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Privacy notice" };
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy notice" updated="10 November 2026">
+    <LegalLayout title="Privacy notice" updated="12 November 2026">
       <p>
         This notice explains, in plain English, what Cardlens does with your information. Cardlens is operated by [Company name] (&quot;we&quot;), the data
         controller. Contact: [privacy email]. ICO registration number: [pending].
@@ -22,7 +22,8 @@ export default function PrivacyPage() {
       <h2>Who processes it</h2>
       <ul>
         <li>Supabase (database, file storage and sign-in), hosted in London (eu-west-2).</li>
-        <li>Vercel (web hosting), with our server functions running in London.</li>
+        <li>[Hosting provider] (web hosting for cardlens.brightnext.eu), in [location].</li>
+        <li>Mailjet (sends sign-in emails), which receives your email address.</li>
         <li>
           Anthropic (the Claude AI model), which reads statement files to extract transactions and writes the report summary. Statement content is sent
           to Anthropic for processing and is not used to train its models. For the summary we send only aggregated totals, not your transaction descriptions.
