@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { anonDb } from "@/lib/db";
+import { LIMITS } from "@/lib/env";
+import { hashIp, takeRateLimit } from "@/lib/usage";
 
 const Schema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address.").max(320),
@@ -11,6 +14,12 @@ const Schema = z.object({
 });
 
 export type WaitlistState = { ok: boolean; error?: string; segment?: string };
+
+/** The visitor address as set by the edge proxy (first X-Forwarded-For entry). */
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+}
 
 export async function joinWaitlist(_prev: WaitlistState, formData: FormData): Promise<WaitlistState> {
   const parsed = Schema.safeParse({
@@ -25,11 +34,17 @@ export async function joinWaitlist(_prev: WaitlistState, formData: FormData): Pr
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the form." };
   }
   const { email, segment, cards } = parsed.data;
-  const supabase = await createClient();
-  const { error } = await supabase.from("waitlist").insert({ email, segment, cards: cards ?? null, source: "landing" });
-  // Already on the list counts as success (and doesn't reveal who has signed up).
-  if (error && error.code !== "23505") {
-    console.error("waitlist insert failed", error.message);
+  try {
+    if (!(await takeRateLimit(`waitlist:${hashIp(await clientIp())}`, LIMITS.waitlistPerIpPerHour, 3600))) {
+      return { ok: false, error: "Too many sign-ups from your network. Please try again in an hour." };
+    }
+    // Already on the list counts as success (and doesn't reveal who has signed up).
+    await anonDb.query(
+      "insert into waitlist (email, segment, cards, source) values ($1, $2, $3, 'landing') on conflict do nothing",
+      [email, segment, cards ?? null],
+    );
+  } catch (err) {
+    console.error("waitlist insert failed", err instanceof Error ? err.message : err);
     return { ok: false, error: "Something went wrong. Please try again in a moment." };
   }
   return { ok: true, segment };

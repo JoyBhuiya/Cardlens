@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import { Card, CardBody, CardHeader, CardTitle, Input, Label, PageHeader, Select, Table, Td, Th, buttonClasses } from "@/components/ui";
 import { SettingsCardDelete, SettingsCategoryDelete, SettingsRuleDelete } from "@/components/settings-buttons";
 import { cardLabel, getAllCategories, getCards } from "@/lib/data";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 import { addCategory, deleteAllData } from "./actions";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const { supabase, user } = await requireUser();
-  const [cards, categories, { data: rules }] = await Promise.all([
-    getCards(supabase),
-    getAllCategories(supabase),
-    supabase.from("merchant_rules").select("id, pattern, merchant, category, is_business").order("created_at", { ascending: false }),
+  const { db, user } = await requireUser();
+  const [cards, categories, rules] = await Promise.all([
+    getCards(db),
+    getAllCategories(db),
+    db.query<{ id: string; pattern: string; merchant: string; category: string | null; is_business: boolean | null }>(
+      "select id, pattern, merchant, category, is_business from merchant_rules order by created_at desc",
+    ),
   ]);
   const custom = categories.filter((c) => !c.is_system);
   const catName = new Map(categories.map((c) => [c.slug, c.name]));

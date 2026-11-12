@@ -5,14 +5,14 @@ import { CategoryDonut, HBarList, SpendVsPaymentsChart } from "@/components/char
 import { computeMetrics } from "@/lib/analytics";
 import { getAllTransactions, getCustomCategoryNames, getStatementBalances, getYears } from "@/lib/data";
 import { formatPence } from "@/lib/money";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 import { monthLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Insights" };
 
 export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
-  const { supabase } = await requireUser();
-  const years = await getYears(supabase);
+  const { db } = await requireUser();
+  const years = await getYears(db);
   if (!years.length) {
     return (
       <>
@@ -23,7 +23,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   }
   const { year: yParam } = await searchParams;
   const year = years.includes(Number(yParam)) ? Number(yParam) : years[0];
-  const [txns, statements, names] = await Promise.all([getAllTransactions(supabase, { year }), getStatementBalances(supabase), getCustomCategoryNames(supabase)]);
+  const [txns, statements, names] = await Promise.all([getAllTransactions(db, { year }), getStatementBalances(db), getCustomCategoryNames(db)]);
   const m = computeMetrics(txns, statements, { year, customCategoryNames: names });
 
   return (

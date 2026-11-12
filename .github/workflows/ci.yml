@@ -1,0 +1,28 @@
+name: ci
+# Runs scripts/verify.sh, the same script developers run before pushing: typecheck, lint, unit tests,
+# Postgres (Docker) with migrations and database tests, production build, Playwright. No secrets.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "tasks/**"]
+  pull_request:
+    paths-ignore: ["**.md", "docs/**", "tasks/**"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: bash scripts/verify.sh

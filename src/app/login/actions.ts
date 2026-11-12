@@ -1,33 +1,28 @@
 "use server";
 
+import { APIError } from "better-auth/api";
+import { headers } from "next/headers";
 import { z } from "zod";
-import { publicEnv } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/lib/auth";
 
 export type LoginState = { sent?: boolean; email?: string; error?: string };
 
 export async function sendMagicLink(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const email = z.string().trim().toLowerCase().email().safeParse(formData.get("email"));
+  const email = z.string().trim().toLowerCase().email().max(320).safeParse(formData.get("email"));
   if (!email.success) return { error: "Enter a valid email address." };
   const nextRaw = String(formData.get("next") ?? "/app");
   const next = nextRaw.startsWith("/app") ? nextRaw : "/app";
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.data,
-    options: {
-      emailRedirectTo: `${publicEnv.siteUrl()}/auth/confirm?next=${encodeURIComponent(next)}`,
-      shouldCreateUser: true,
-    },
-  });
-  if (error) {
-    console.error("signInWithOtp failed", error.message);
-    if (error.code === "over_email_send_rate_limit") {
-      return { error: "We've sent too many sign-in emails in the last hour. Please try again later, or use the link we already sent." };
+  try {
+    await auth().api.signInMagicLink({
+      body: { email: email.data, callbackURL: next, errorCallbackURL: "/login?error=link" },
+      headers: await headers(),
+    });
+  } catch (err) {
+    if (err instanceof APIError && err.statusCode === 429) {
+      return { error: "Please wait before requesting another link, or use the one we already sent." };
     }
-    if (error.status === 429) {
-      return { error: "Please wait a minute before requesting another link, or use the one we just sent." };
-    }
+    console.error("signInMagicLink failed", err instanceof Error ? err.message : err);
     return { error: "We couldn't send the email. Please try again." };
   }
   return { sent: true, email: email.data };

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { normaliseDescription } from "@/lib/pipeline/normalise";
-import { requireUser } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/session";
 
 const Input = z.object({
   id: z.string().uuid(),
@@ -26,43 +26,37 @@ export async function updateTransaction(input: z.input<typeof Input>) {
   const parsed = Input.safeParse(input);
   if (!parsed.success) return { error: "Invalid change." };
   const { id, category, is_business, applyToMerchant } = parsed.data;
-  const { supabase, user } = await requireUser();
+  const { db, user } = await requireUser();
 
-  const { data: txn } = await supabase.from("transactions").select("merchant, description_raw, kind").eq("id", id).single();
+  const txn = await db.one<{ merchant: string; description_raw: string }>("select merchant, description_raw from transactions where id = $1", [id]);
   if (!txn) return { error: "Transaction not found." };
 
-  const patch: Record<string, unknown> = {};
-  if (category) {
-    patch.category = category;
-    patch.category_source = "user";
-  }
-  if (is_business !== undefined) patch.is_business = is_business;
+  // category_source changes only together with category; is_business only when given.
+  const set = `category = coalesce($2, category),
+               category_source = case when $2::text is null then category_source else 'user' end,
+               is_business = coalesce($3, is_business)`;
 
-  let updated = 0;
-  if (applyToMerchant) {
-    const { data } = await supabase
-      .from("transactions")
-      .update(patch)
-      .eq("merchant", txn.merchant)
-      .in("kind", ["purchase", "refund"])
-      .select("id");
-    updated = data?.length ?? 0;
-
+  const updated = await db.tx(async (tx) => {
+    if (!applyToMerchant) {
+      await tx.query(`update transactions set ${set} where id = $1`, [id, category ?? null, is_business ?? null]);
+      return 1;
+    }
+    const rows = await tx.query(`update transactions set ${set} where merchant = $1 and kind in ('purchase', 'refund') returning id`, [
+      txn.merchant,
+      category ?? null,
+      is_business ?? null,
+    ]);
     const pattern = rulePattern(txn.merchant, txn.description_raw);
-    const { data: existing } = await supabase.from("merchant_rules").select("id, category, is_business").ilike("pattern", pattern).maybeSingle();
-    const rule = {
-      user_id: user.id,
-      pattern,
-      merchant: txn.merchant,
-      category: category ?? existing?.category ?? null,
-      is_business: is_business ?? existing?.is_business ?? null,
-    };
-    if (existing) await supabase.from("merchant_rules").update(rule).eq("id", existing.id);
-    else await supabase.from("merchant_rules").insert(rule);
-  } else {
-    await supabase.from("transactions").update(patch).eq("id", id);
-    updated = 1;
-  }
+    await tx.query(
+      `insert into merchant_rules (user_id, pattern, merchant, category, is_business) values ($1, $2, $3, $4, $5)
+       on conflict (user_id, lower(pattern)) do update
+         set merchant = excluded.merchant,
+             category = coalesce(excluded.category, merchant_rules.category),
+             is_business = coalesce(excluded.is_business, merchant_rules.is_business)`,
+      [user.id, pattern, txn.merchant, category ?? null, is_business ?? null],
+    );
+    return rows.length;
+  });
   revalidatePath("/app", "layout");
   return { updated };
 }

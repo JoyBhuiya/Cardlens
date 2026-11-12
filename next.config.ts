@@ -1,17 +1,13 @@
 import type { NextConfig } from "next";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : "*.supabase.co";
-
-// Strict CSP: no third-party scripts or trackers. Supabase is the only
-// browser-side origin (storage uploads and auth).
+// Strict CSP: no third-party scripts or trackers. The browser only ever talks to this origin.
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -30,6 +26,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Every /app page is per-user and request-time, so Cache Components is off.
   cacheComponents: false,
+  // Self-contained server bundle for the Docker image (deploy/Dockerfile).
+  output: "standalone",
   poweredByHeader: false,
   turbopack: {
     rules: {

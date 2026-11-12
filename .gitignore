@@ -42,3 +42,8 @@ next-env.d.ts
 
 /test-results
 /playwright-report
+
+# local statement files and mail outbox
+/.data
+# env files, except the documented template
+!.env.example

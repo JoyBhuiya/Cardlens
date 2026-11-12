@@ -21,8 +21,7 @@ export default function PrivacyPage() {
       <p>To provide the service you asked for: reading your statements and building your report (performance of a contract). For the waitlist, we rely on your consent, which you can withdraw at any time.</p>
       <h2>Who processes it</h2>
       <ul>
-        <li>Supabase (database, file storage and sign-in), hosted in London (eu-west-2).</li>
-        <li>[Hosting provider] (web hosting for cardlens.brightnext.eu), in [location].</li>
+        <li>[Hosting provider] (the server that runs cardlens.brightnext.eu, its database and statement file storage), in [location].</li>
         <li>Mailjet (sends sign-in emails), which receives your email address.</li>
         <li>
           Anthropic (the Claude AI model), which reads statement files to extract transactions and writes the report summary. Statement content is sent

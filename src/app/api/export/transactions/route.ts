@@ -3,21 +3,20 @@ import { NextResponse, type NextRequest } from "next/server";
 import { categoryName } from "@/lib/categories";
 import { cardLabel, getAllTransactions, getCards, getCustomCategoryNames } from "@/lib/data";
 import { KIND_LABELS } from "@/lib/types";
-import { createClient } from "@/lib/supabase/server";
+import { userDb } from "@/lib/db";
+import { getUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 /** Accountant-ready CSV of the user's transactions. Optional ?year=, ?card=, ?kind=, ?category=, ?business= */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in", code: "unauthenticated" }, { status: 401 });
+  const db = userDb(user.id);
 
   const sp = request.nextUrl.searchParams;
   const year = Number(sp.get("year")) || undefined;
-  const [txns, cards, names] = await Promise.all([getAllTransactions(supabase, { year }), getCards(supabase), getCustomCategoryNames(supabase)]);
+  const [txns, cards, names] = await Promise.all([getAllTransactions(db, { year }), getCards(db), getCustomCategoryNames(db)]);
   const cardMap = new Map(cards.map((c) => [c.id, cardLabel(c)]));
   const month = sp.get("month");
 

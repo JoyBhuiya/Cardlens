@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import { toPence } from "@/lib/money";
 import { toIsoDate } from "./normalise";
 import type { Direction } from "@/lib/types";
+import { UserError } from "@/lib/errors";
 
 export interface CsvTxn {
   posted_on: string;
@@ -70,7 +71,7 @@ export function parseStatementCsv(text: string, mapping?: CsvMapping): CsvResult
   const headers = parsed.meta.fields ?? [];
   const map = mapping ?? detectMapping(headers, parsed.data);
   if (!map) {
-    throw new Error(
+    throw new UserError(
       `Could not find date, description and amount columns in this CSV. Columns found: ${headers.join(", ") || "none"}.`,
     );
   }

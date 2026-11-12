@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, FileUp } from "lucide-react";
-import { createCard, createStatementUpload, markUploadFailed } from "@/app/app/actions";
+import { createCard } from "@/app/app/actions";
 import { Badge, Button, Card, CardBody, Input, Label, Select, buttonClasses } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const ISSUERS = ["American Express", "Barclaycard", "HSBC", "Lloyds", "NatWest", "Halifax", "Santander", "Nationwide", "Capital One", "Virgin Money", "MBNA", "Tesco Bank", "John Lewis", "Monzo", "Other"];
@@ -31,7 +30,7 @@ function fileType(f: File): "pdf" | "csv" | null {
   return null;
 }
 
-export function Uploader({ userId, initialCards }: { userId: string; initialCards: CardOpt[] }) {
+export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
   const router = useRouter();
   const [cards, setCards] = useState(initialCards);
   const [cardId, setCardId] = useState(initialCards[0]?.id ?? "");
@@ -78,27 +77,24 @@ export function Uploader({ userId, initialCards }: { userId: string; initialCard
   async function processAll() {
     if (!cardId) return;
     setBusy(true);
-    const supabase = createClient();
     const queue = items.filter((i) => i.state === "queued");
     for (const item of queue) {
       const type = fileType(item.file)!;
       update(item.key, { state: "uploading", message: "Uploading securely…" });
-      const created = await createStatementUpload({ cardId, fileName: item.file.name, fileType: type, size: item.file.size, keepFile: keepFiles });
-      if ("error" in created && created.error) {
-        update(item.key, { state: "failed", message: created.error });
-        continue;
-      }
-      const { id, path } = created as { id: string; path: string };
-      if (!path.startsWith(`${userId}/`)) {
-        update(item.key, { state: "failed", message: "Upload path mismatch." });
-        continue;
-      }
-      const { error: upErr } = await supabase.storage.from("statements").upload(path, item.file, {
-        contentType: type === "pdf" ? "application/pdf" : "text/csv",
-        upsert: false,
-      });
-      if (upErr) {
-        await markUploadFailed(id, upErr.message);
+      const form = new FormData();
+      form.set("cardId", cardId);
+      form.set("keepFile", String(keepFiles));
+      form.set("file", item.file);
+      let id: string;
+      try {
+        const res = await fetch("/api/statements/upload", { method: "POST", body: form });
+        const body = (await res.json()) as { id?: string; error?: string };
+        if (!res.ok || !body.id) {
+          update(item.key, { state: "failed", message: body.error ?? "Upload failed. Please try again." });
+          continue;
+        }
+        id = body.id;
+      } catch {
         update(item.key, { state: "failed", message: "Upload failed. Please try again." });
         continue;
       }

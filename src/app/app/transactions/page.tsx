@@ -4,45 +4,67 @@ import { Card, EmptyState, PageHeader, Select, Table, Td, Th, buttonClasses, Inp
 import { CategoryCell, BusinessCell } from "@/components/transaction-cells";
 import { cardLabel, getAllCategories, getCards } from "@/lib/data";
 import { formatPence } from "@/lib/money";
-import { KIND_LABELS, TXN_KINDS } from "@/lib/types";
-import { requireUser } from "@/lib/supabase/server";
+import { KIND_LABELS, TXN_KINDS, type Direction, type TxnKind } from "@/lib/types";
+import { requireUser } from "@/lib/session";
 import { formatDate, monthLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Transactions" };
 const PAGE = 100;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** The search box is matched literally: %, _ and the escape character lose their LIKE meaning. */
+const escapeLike = (q: string) => q.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+interface TxnListRow {
+  id: string;
+  card_id: string;
+  posted_on: string;
+  merchant: string;
+  description_raw: string;
+  amount_pence: number;
+  direction: Direction;
+  kind: TxnKind;
+  category: string;
+  is_business: boolean;
+  is_recurring: boolean;
+}
 
 type SP = { month?: string; card?: string; kind?: string; category?: string; business?: string; q?: string; page?: string };
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const { supabase } = await requireUser();
+  const { db } = await requireUser();
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
-  let q = supabase
-    .from("transactions")
-    .select("id, card_id, posted_on, merchant, description_raw, amount_pence, direction, kind, category, is_business, is_recurring", { count: "exact" })
-    .order("posted_on", { ascending: false })
-    .order("id")
-    .range((page - 1) * PAGE, page * PAGE - 1);
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const add = (clause: (n: string) => string, value: unknown) => where.push(clause(`$${params.push(value)}`));
   if (sp.month && /^\d{4}-\d{2}$/.test(sp.month)) {
     const [y, m] = sp.month.split("-").map(Number);
     const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-    q = q.gte("posted_on", `${sp.month}-01`).lte("posted_on", end);
+    add((n) => `posted_on >= ${n}`, `${sp.month}-01`);
+    add((n) => `posted_on <= ${n}`, end);
   }
-  if (sp.card) q = q.eq("card_id", sp.card);
-  if (sp.kind && (TXN_KINDS as readonly string[]).includes(sp.kind)) q = q.eq("kind", sp.kind);
-  if (sp.category) q = q.eq("category", sp.category);
-  if (sp.business === "yes") q = q.eq("is_business", true);
-  if (sp.business === "no") q = q.eq("is_business", false);
-  if (sp.q) q = q.or(`merchant.ilike.%${sp.q.replace(/[%,()]/g, "")}%,description_raw.ilike.%${sp.q.replace(/[%,()]/g, "")}%`);
+  if (sp.card && UUID.test(sp.card)) add((n) => `card_id = ${n}`, sp.card);
+  if (sp.kind && (TXN_KINDS as readonly string[]).includes(sp.kind)) add((n) => `kind = ${n}`, sp.kind);
+  if (sp.category) add((n) => `category = ${n}`, sp.category);
+  if (sp.business === "yes") where.push("is_business");
+  if (sp.business === "no") where.push("not is_business");
+  if (sp.q) add((n) => `(merchant ilike ${n} or description_raw ilike ${n})`, `%${escapeLike(sp.q)}%`);
+  const whereSql = where.length ? `where ${where.join(" and ")}` : "";
 
-  const [{ data, count }, cards, categories, { data: monthsData }] = await Promise.all([
-    q,
-    getCards(supabase),
-    getAllCategories(supabase),
-    supabase.from("transactions").select("posted_on").order("posted_on", { ascending: false }).limit(1),
+  const [rows, counted, cards, categories, latestRow] = await Promise.all([
+    db.query<TxnListRow>(
+      `select id, card_id, posted_on, merchant, description_raw, amount_pence, direction, kind, category, is_business, is_recurring
+       from transactions ${whereSql} order by posted_on desc, id limit ${PAGE} offset ${(page - 1) * PAGE}`,
+      params,
+    ),
+    db.one<{ n: number }>(`select count(*) as n from transactions ${whereSql}`, params),
+    getCards(db),
+    getAllCategories(db),
+    db.one<{ posted_on: string | null }>("select max(posted_on) as posted_on from transactions"),
   ]);
-  const rows = data ?? [];
+  const count = counted?.n ?? 0;
   const cardMap = new Map(cards.map((c) => [c.id, cardLabel(c)]));
 
   if (!rows.length && !Object.values(sp).some(Boolean)) {
@@ -55,7 +77,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   }
 
   // Month options: the 24 months up to the latest transaction
-  const latest = monthsData?.[0]?.posted_on?.slice(0, 7);
+  const latest = latestRow?.posted_on?.slice(0, 7);
   const monthOpts: string[] = [];
   if (latest) {
     const d = new Date(`${latest}-01T00:00:00Z`);
@@ -64,7 +86,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       d.setUTCMonth(d.getUTCMonth() - 1);
     }
   }
-  const total = count ?? 0;
+  const total = count;
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const qs = (patch: Partial<SP>) => {
     const p = new URLSearchParams(Object.entries({ ...sp, ...patch }).filter(([, v]) => v) as [string, string][]);
