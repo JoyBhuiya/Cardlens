@@ -29,9 +29,14 @@ export async function sendMail(mail: Mail): Promise<void> {
           {
             From: { Email: serverEnv.mailFrom(), Name: "Cardlens" },
             To: [{ Email: mail.to }],
+            ...(serverEnv.mailReplyTo() ? { ReplyTo: { Email: serverEnv.mailReplyTo() } } : {}),
             Subject: mail.subject,
             TextPart: mail.text,
             HTMLPart: mail.html,
+            // Transactional mail: no link rewriting (it would route one-time sign-in links through Mailjet
+            // and let scanners use them up) and no tracking pixel. Both also count as spam signals.
+            TrackClicks: "disabled",
+            TrackOpens: "disabled",
           },
         ],
       }),

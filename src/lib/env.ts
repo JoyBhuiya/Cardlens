@@ -33,6 +33,8 @@ export const serverEnv = {
   mailjetKey: () => process.env.MAILJET_API_KEY ?? "",
   mailjetSecret: () => process.env.MAILJET_API_SECRET ?? "",
   mailFrom: () => process.env.MAIL_FROM ?? "",
+  /** Optional: where replies to app mail go (MAIL_FROM is usually a no-reply address). */
+  mailReplyTo: () => process.env.MAIL_REPLY_TO ?? "",
   /** Development and e2e only: write outgoing mail as JSON files here instead of sending it. */
   mailOutboxDir: () => process.env.MAIL_OUTBOX_DIR ?? "",
 };

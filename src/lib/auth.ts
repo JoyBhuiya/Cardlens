@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { pool } from "@/lib/db";
 import { serverEnv } from "@/lib/env";
+import { signInEmail } from "@/lib/email/sign-in";
 import { sendMail } from "@/lib/mail";
 
 const LINK_MINUTES = 60;
@@ -33,12 +34,7 @@ function createAuth() {
           // Closed beta: addresses outside the allowlist get the same "check your inbox" screen but no mail.
           const allow = serverEnv.signInAllowlist();
           if (allow.length > 0 && !allow.includes(email.toLowerCase())) return;
-          await sendMail({
-            to: email,
-            subject: "Your Cardlens sign-in link",
-            text: `Sign in to Cardlens:\n\n${url}\n\nThe link works once and expires in ${LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.`,
-            html: `<p>Sign in to Cardlens:</p><p><a href="${url}">Sign in</a></p><p>The link works once and expires in ${LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.</p>`,
-          });
+          await sendMail({ to: email, ...signInEmail({ url, minutes: LINK_MINUTES, siteHost: new URL(baseURL).host }) });
         },
       }),
       nextCookies(), // must stay last
