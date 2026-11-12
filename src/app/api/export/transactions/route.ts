@@ -5,18 +5,27 @@ import { cardLabel, getAllTransactions, getCards, getCustomCategoryNames } from 
 import { KIND_LABELS } from "@/lib/types";
 import { userDb } from "@/lib/db";
 import { getUser } from "@/lib/session";
+import { getAccess } from "@/lib/entitlements";
+import { parsePeriodKey } from "@/lib/period";
 
 export const runtime = "nodejs";
 
-/** Accountant-ready CSV of the user's transactions. Optional ?year=, ?card=, ?kind=, ?category=, ?business= */
+/**
+ * Accountant-ready CSV of the user's transactions (Side-Business plan, or anyone while payments are off).
+ * Optional ?period= (2026, tax-2025, m-2025-11) or ?year=, plus ?month=, ?card=, ?kind=, ?category=, ?business=
+ */
 export async function GET(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Not signed in", code: "unauthenticated" }, { status: 401 });
   const db = userDb(user.id);
+  if (!(await getAccess(db)).can("csv_export")) {
+    return NextResponse.json({ error: "CSV export needs the Side-Business plan.", code: "upgrade_required" }, { status: 403 });
+  }
 
   const sp = request.nextUrl.searchParams;
+  const period = parsePeriodKey(sp.get("period") ?? "") ?? undefined;
   const year = Number(sp.get("year")) || undefined;
-  const [txns, cards, names] = await Promise.all([getAllTransactions(db, { year }), getCards(db), getCustomCategoryNames(db)]);
+  const [txns, cards, names] = await Promise.all([getAllTransactions(db, { period, year }), getCards(db), getCustomCategoryNames(db)]);
   const cardMap = new Map(cards.map((c) => [c.id, cardLabel(c)]));
   const month = sp.get("month");
 
@@ -45,7 +54,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse("﻿" + csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="cardlens-transactions${year ? `-${year}` : ""}.csv"`,
+      "Content-Disposition": `attachment; filename="cardlens-transactions${period ? `-${period.key}` : year ? `-${year}` : ""}.csv"`,
       "Cache-Control": "no-store",
     },
   });

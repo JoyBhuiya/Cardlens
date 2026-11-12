@@ -6,6 +6,8 @@ import { cardLabel, getAllCategories, getCards } from "@/lib/data";
 import { formatPence } from "@/lib/money";
 import { KIND_LABELS, TXN_KINDS, type Direction, type TxnKind } from "@/lib/types";
 import { requireUser } from "@/lib/session";
+import { getAccessCached } from "@/lib/entitlements";
+import { LockedLink } from "@/components/upgrade";
 import { formatDate, monthLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Transactions" };
@@ -34,6 +36,8 @@ type SP = { month?: string; card?: string; kind?: string; category?: string; bus
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { db } = await requireUser();
+  const access = await getAccessCached(db);
+  const business = access.can("business_split");
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const where: string[] = [];
@@ -48,8 +52,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   if (sp.card && UUID.test(sp.card)) add((n) => `card_id = ${n}`, sp.card);
   if (sp.kind && (TXN_KINDS as readonly string[]).includes(sp.kind)) add((n) => `kind = ${n}`, sp.kind);
   if (sp.category) add((n) => `category = ${n}`, sp.category);
-  if (sp.business === "yes") where.push("is_business");
-  if (sp.business === "no") where.push("not is_business");
+  if (business && sp.business === "yes") where.push("is_business");
+  if (business && sp.business === "no") where.push("not is_business");
   if (sp.q) add((n) => `(merchant ilike ${n} or description_raw ilike ${n})`, `%${escapeLike(sp.q)}%`);
   const whereSql = where.length ? `where ${where.join(" and ")}` : "";
 
@@ -100,9 +104,13 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         title="Transactions"
         description={`${total.toLocaleString("en-GB")} transaction${total === 1 ? "" : "s"}`}
         actions={
-          <a href={`/api/export/transactions${qs({ page: undefined })}`} className={buttonClasses("secondary")}>
-            Export CSV
-          </a>
+          access.can("csv_export") ? (
+            <a href={`/api/export/transactions${qs({ page: undefined })}`} className={buttonClasses("secondary")}>
+              Export CSV
+            </a>
+          ) : (
+            <LockedLink feature="csv_export">Export CSV</LockedLink>
+          )
         }
       />
       <Card className="mb-4 p-4">
@@ -143,14 +151,16 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="f-biz" className="text-xs">Business</Label>
-            <Select id="f-biz" name="business" defaultValue={sp.business ?? ""}>
-              <option value="">All</option>
-              <option value="yes">Business only</option>
-              <option value="no">Personal only</option>
-            </Select>
-          </div>
+          {business ? (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="f-biz" className="text-xs">Business</Label>
+              <Select id="f-biz" name="business" defaultValue={sp.business ?? ""}>
+                <option value="">All</option>
+                <option value="yes">Business only</option>
+                <option value="no">Personal only</option>
+              </Select>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1">
             <Label htmlFor="f-q" className="text-xs">Search</Label>
             <Input id="f-q" name="q" defaultValue={sp.q ?? ""} placeholder="Merchant…" className="min-h-11" />
@@ -169,7 +179,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               <Th>Merchant</Th>
               <Th>Type</Th>
               <Th>Category</Th>
-              <Th>Business</Th>
+              {business ? <Th>Business</Th> : null}
               <Th className="text-right">Amount</Th>
             </tr>
           </thead>
@@ -194,7 +204,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                     <span className="text-muted">{catOptions.find((c) => c.slug === t.category)?.name ?? t.category}</span>
                   )}
                 </Td>
-                <Td>{t.kind === "purchase" || t.kind === "refund" ? <BusinessCell id={t.id} merchant={t.merchant} value={t.is_business} /> : null}</Td>
+                {business ? (
+                  <Td>{t.kind === "purchase" || t.kind === "refund" ? <BusinessCell id={t.id} merchant={t.merchant} value={t.is_business} /> : null}</Td>
+                ) : null}
                 <Td className={`num whitespace-nowrap text-right font-semibold ${t.direction === "credit" ? "text-positive" : t.kind === "interest" || t.kind === "fee" ? "text-negative" : ""}`}>
                   {t.direction === "credit" ? "−" : ""}
                   {formatPence(t.amount_pence)}
@@ -203,7 +215,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
             ))}
             {!rows.length ? (
               <tr>
-                <Td colSpan={6} className="py-8 text-center text-muted">No transactions match these filters.</Td>
+                <Td colSpan={business ? 6 : 5} className="py-8 text-center text-muted">No transactions match these filters.</Td>
               </tr>
             ) : null}
           </tbody>

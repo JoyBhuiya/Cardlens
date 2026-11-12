@@ -6,6 +6,7 @@ import { LIMITS } from "@/lib/env";
 import { UserError } from "@/lib/errors";
 import { getUser } from "@/lib/session";
 import { removeFile, saveFile, sniffType } from "@/lib/storage";
+import { enqueueStatement } from "@/lib/jobs";
 import { assertUploadAllowance, recordUpload } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -17,7 +18,10 @@ const Fields = z.object({
 
 const err = (error: string, code: string, status: number) => NextResponse.json({ error, code }, { status });
 
-/** Step 1 of a statement: check limits, store the file under the user's folder, create the statements row. */
+/**
+ * Step 1 of a statement: check limits, store the file under the user's folder, create the statements row and
+ * queue it for the background worker. The browser then polls /api/statements/status.
+ */
 export async function POST(request: Request) {
   const user = await getUser();
   if (!user) return err("Not signed in", "unauthenticated", 401);
@@ -59,7 +63,8 @@ export async function POST(request: Request) {
         await recordUpload(tx, user.id);
         return created;
       });
-      return NextResponse.json({ id: row?.id });
+      if (row?.id) await enqueueStatement(db, user.id, row.id);
+      return NextResponse.json({ id: row?.id, queued: true });
     } catch (e) {
       await removeFile(user.id, filePath);
       throw e;

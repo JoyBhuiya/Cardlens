@@ -78,6 +78,23 @@ On the server, in `/opt/cardlens/stack`:
 - Restore: `docker compose exec -T cardlens-postgres pg_restore -U cardlens -d cardlens --clean < ../backups/<file>.dump`.
   Test a restore once after the first release.
 
+## Payments (Stripe)
+Payments stay off until `PAYMENTS_ENABLED=true`; with it off everyone gets every feature and checkout is hidden.
+Do these in **test mode** first, then repeat in live mode.
+1. Stripe → Product catalogue: **Annual Report**, one-off price £9.00 GBP; **Side-Business**, recurring price
+   £29.00 GBP yearly. Copy the two price ids (`price_…`).
+2. Settings → Billing → Customer portal: turn it on; allow cancelling subscriptions (at period end) and
+   updating payment methods; show invoices.
+3. Developers → Webhooks → Add endpoint `https://cardlens.brightnext.eu/api/stripe/webhook` with events
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`. Copy its signing secret.
+4. On the server, edit `/opt/cardlens/stack/.env` yourself (never paste keys into chats or commits):
+   `STRIPE_SECRET_KEY` (a restricted or secret key), `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PERSONAL`,
+   `STRIPE_PRICE_SIDE_BUSINESS`, then `PAYMENTS_ENABLED=true`, and restart the app as in "Server preparation" (`docker compose up -d --no-deps cardlens-app`).
+5. Check: buy with card `4242 4242 4242 4242`, the webhook delivery shows 200, `/app/billing` shows the plan,
+   Insights opens. Refund the £9 in full → access ends.
+Only switch live keys on once the legal details in `src/lib/legal.ts` are filled and reviewed.
+
 ## Troubleshooting
 - **Deploy job red in GitHub:** open the run's `deploy` log. A failed health or smoke check has already rolled
   back to the previous release; fix the cause and push again. `skip: … no longer the head of main` is normal
@@ -85,8 +102,12 @@ On the server, in `/opt/cardlens/stack`:
 - **`permission denied` on `~/.docker/buildx/.lock`:** files in `~ubuntu/.docker` owned by root (left by a
   `sudo docker` run). `sudo chown -R ubuntu:ubuntu ~ubuntu/.docker` fixes it. Never run docker with sudo here.
 - **Sign-in mail in Junk at Outlook:** check the message source. If `spf`, `dkim` and `dmarc` all pass, it's
-  domain reputation, which improves as people mark it "Not junk". If testers keep hitting it, switch to
-  6-digit codes (Better Auth email-OTP plugin).
+  domain reputation, which improves as people mark it "Not junk". Sign-in uses 6-digit codes, so a user can
+  copy the code from Junk.
+- **Statements stuck on "Waiting":** the worker isn't running. Check `WORKER_ENABLED` isn't `false` and the app
+  logs for `[worker]`. A restart picks up queued and stale jobs automatically.
+- **Paid but still on Free:** Stripe → Developers → Webhooks → the endpoint's recent deliveries. A 400 means the
+  `STRIPE_WEBHOOK_SECRET` doesn't match that endpoint; a 503 means it isn't set. Resend the event once fixed.
 - **Mailjet "sender not validated":** the domain lost its validation in Mailjet. Re-validate it under
   Senders & domains (DNS TXT or a file on brightnext.eu).
 

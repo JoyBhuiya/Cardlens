@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeMetrics } from "@/lib/analytics";
+import { parsePeriodKey } from "@/lib/period";
 import { allowedAmounts, poundFigures, validateSummary } from "@/lib/summary/validate";
 import { templateSummary } from "@/lib/summary/template";
 import type { TxnRow } from "@/lib/types";
@@ -92,5 +93,23 @@ describe("summary validator", () => {
   it("the template fallback always passes its own validator", () => {
     const v = validateSummary(templateSummary(m), m);
     expect(v.problems).toEqual([]);
+  });
+});
+
+describe("computeMetrics for any period", () => {
+  it("filters a UK tax year by date (6 Apr – 5 Apr) and labels it", () => {
+    const tax = parsePeriodKey("tax-2025")!;
+    const m = computeMetrics(rows, statements, { period: tax });
+    expect(m.period_key).toBe("tax-2025");
+    expect(m.period_label).toBe("2025/26 tax year");
+    // Inside 2025/26: 30 Dec 2025, and Jan–Apr 2026 lines dated the 3rd and 5th (before 6 April).
+    // Outside: the 20 April payment and the 28 April interest and fee.
+    expect(m.total_interest_pence).toBe(0);
+    expect(m.total_purchases_pence).toBe(99999 + 4 * (1099 + 30000));
+    expect(m.total_payments_pence).toBe(3 * 40000);
+    expect(m.monthly.map((x) => x.month)).toEqual(["2025-12", "2026-01", "2026-02", "2026-03", "2026-04"]);
+  });
+  it("still accepts { year } and matches the calendar-year period", () => {
+    expect(computeMetrics(rows, statements, { year: 2026 })).toEqual(computeMetrics(rows, statements, { period: parsePeriodKey("2026")! }));
   });
 });

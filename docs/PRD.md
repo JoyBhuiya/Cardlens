@@ -25,14 +25,14 @@ No bank login: you upload the statements yourself.
 | Personal use | A clear look back at a year: spend vs payments by month, top categories, merchants and subscriptions, interest and fees with saving ideas | £9 one-off report |
 | Professionals (accountants, mortgage brokers, debt advisers) | Unlimited client reports, own branding on PDFs, bulk upload | £49 per seat per month |
 
-Prices are shown on the landing page as "planned launch pricing". Nothing is charged yet (see Open decisions).
+Plans are built (Stripe Checkout, test mode). Payments stay switched off in production (`PAYMENTS_ENABLED=false`, everything free) until the legal items below are done.
 
 ## What exists today
 - **Landing page** with how it works, audiences and pricing, trust points, and a waitlist (email, segment, cards).
-- **Sign-in** by emailed magic link (no passwords); open sign-up, with an optional allowlist.
+- **Sign-in** with a 6-digit code sent by email (no passwords); open sign-up, with an optional allowlist.
 - **Cards:** add cards (issuer, nickname, last 4 digits).
-- **Upload:** up to 12 PDF or CSV files per batch, 10 MB each. Each file is read, checked and sorted one at a time,
-  with progress per file. Files are deleted after a successful read unless the user chooses to keep them.
+- **Upload:** up to 12 PDF or CSV files per batch, 10 MB each. Files are read, checked and sorted in the background,
+  with progress per file; the user can close the page and come back. Files are deleted after a successful read unless the user chooses to keep them.
 - **Reading:** PDFs are read by Claude into a fixed schema; CSVs are parsed with column detection.
 - **Checking:** each statement is reconciled to the penny (opening + debits − credits = closing). A gap over
   £1 marks it "Needs review". Lines repeated across overlapping statements are imported once.
@@ -43,12 +43,16 @@ Prices are shown on the landing page as "planned launch pricing". Nothing is cha
   the business flag for one line or for every line from that merchant (remembered as a rule); CSV export.
 - **Overview:** headline numbers, spend vs payments by month, top categories, recurring charges, and a prompt
   when statements need attention.
-- **Insights** per year: month by month, spending by category, top merchants, recurring charges, business share,
+- **Insights** per calendar year, UK tax year or any 12 months: month by month, spending by category, top merchants, recurring charges, business share,
   foreign-currency spend.
-- **Annual report** per calendar year: headline numbers, an AI-written summary whose every £ figure is checked
+- **Annual report** per calendar year, UK tax year (6 April – 5 April) or any 12 months: headline numbers, an AI-written summary whose every £ figure is checked
   against the computed numbers (otherwise a template summary is used), costed saving ideas, PDF (print) and
   CSV download.
-- **Settings:** cards, custom categories, remembered merchant rules, delete all my data.
+- **Settings:** cards, custom categories, remembered merchant rules, download all my data (JSON, free), delete all
+  my data (cancels any subscription first).
+- **Plans & billing:** Free; Annual Report £9 one-off (12 months: Insights, full report, PDF, CSV); Side-Business
+  £29 a year (adds business/personal split and up to 3 cards); Professional £49 shown as "coming soon". Free users
+  see headline numbers in a report preview with an upgrade prompt.
 - **Limits:** uploads per day and AI calls per user per month, plus a global daily AI cap.
 
 ## Principles
@@ -72,8 +76,7 @@ accounts or teams, the professional tier's branding and client management, mobil
 ## Open decisions (owner)
 - **Legal:** operating entity and seller of record, ICO registration, UK representative check, DPIA, final
   privacy and terms texts (placeholders remain).
-- **Commercial:** which tiers launch first. The current recommendation is the £9 one-off report and £29 per
-  year, with £49 parked. Also the free vs paid boundary (proposed: upload, reconciliation and transactions free;
-  full report and exports paid).
-- **Payments:** Stripe Checkout and webhooks, entitlements behind one `hasAccess()` check.
+- **Decided (2026-11-12):** £9 one-off and £29 per year launch first, £49 parked. Free = upload, reconciliation,
+  statements, transactions, overview, report preview; paid = Insights, full report, PDF, CSV.
+- **Go-live for payments:** live Stripe account, products and webhook, then `PAYMENTS_ENABLED=true`.
 - **Pricing check:** measure the real cost per statement before fixing prices.

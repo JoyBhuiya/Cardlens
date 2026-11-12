@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { CardRow } from "@/lib/data";
+import { getAccess } from "@/lib/entitlements";
 import { requireUser } from "@/lib/session";
 import { removeFile } from "@/lib/storage";
 
@@ -23,6 +24,11 @@ export async function createCard(input: { issuer: string; nickname?: string; las
   const parsed = CardSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the card details." };
   const { db, user } = await requireUser();
+  const access = await getAccess(db);
+  const count = await db.one<{ n: number }>("select count(*) as n from cards");
+  if ((count?.n ?? 0) >= access.maxCards) {
+    return { error: `Your plan includes ${access.maxCards} card${access.maxCards === 1 ? "" : "s"}. Upgrade on Plan & billing to add more.` };
+  }
   try {
     const card = await db.one<CardRow>(
       "insert into cards (user_id, issuer, nickname, last4) values ($1, $2, $3, $4) returning id, issuer, nickname, last4",

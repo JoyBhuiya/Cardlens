@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { normaliseDescription } from "@/lib/pipeline/normalise";
 import { requireUser } from "@/lib/session";
+import { getAccess } from "@/lib/entitlements";
 
 const Input = z.object({
   id: z.string().uuid(),
@@ -27,6 +28,9 @@ export async function updateTransaction(input: z.input<typeof Input>) {
   if (!parsed.success) return { error: "Invalid change." };
   const { id, category, is_business, applyToMerchant } = parsed.data;
   const { db, user } = await requireUser();
+  if (is_business !== undefined && !(await getAccess(db)).can("business_split")) {
+    return { error: "Business vs personal needs the Side-Business plan." };
+  }
 
   const txn = await db.one<{ merchant: string; description_raw: string }>("select merchant, description_raw from transactions where id = $1", [id]);
   if (!txn) return { error: "Transaction not found." };

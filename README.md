@@ -2,7 +2,7 @@
 
 Turns up to 12 months of UK credit card statements into a reconciled annual report: spend vs payments, where the money goes, and costed saving ideas with a professional summary.
 
-Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row-level security · Better Auth (magic link) · Claude API · Mailjet for sign-in emails · self-hosted with Docker at https://cardlens.brightnext.eu.
+Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row-level security · Better Auth (6-digit email code) · Stripe (payments, off by default) · Claude API · Mailjet for sign-in emails · self-hosted with Docker at https://cardlens.brightnext.eu.
 
 ## Setup
 
@@ -18,8 +18,8 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row
 | [docs/PRD.md](docs/PRD.md) | Problem, users, what exists today, principles, open product decisions |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System, code layout, auth flow, statement pipeline, data model, security, CI/CD (with diagrams) |
 | [docs/DESIGN.md](docs/DESIGN.md) | Colour, type, components, charts, layout, print, writing, accessibility |
-| [docs/runbooks/deploy.md](docs/runbooks/deploy.md) | Server setup, auto-deploy, operating, troubleshooting |
-| [docs/adr/](docs/adr/) | Decisions: [0001 self-hosted Postgres instead of Supabase](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md) |
+| [docs/runbooks/deploy.md](docs/runbooks/deploy.md) | Server setup, auto-deploy, payments (Stripe), operating, troubleshooting |
+| [docs/adr/](docs/adr/) | Decisions: [0001 self-hosted Postgres instead of Supabase](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md), [0002 background jobs and payments in Postgres](docs/adr/0002-postgres-job-queue-and-entitlements.md) |
 | [tasks/todo.md](tasks/todo.md) | Done and open work |
 
 ## Hosting
@@ -57,7 +57,8 @@ Production runs on Brightnext's own server at **https://cardlens.brightnext.eu**
 ```
 browser ──POST /api/statements/upload──▶ disk volume (<user_id>/<uuid>.pdf|csv, owner-checked)
    │
-   └─POST /api/statements/:id/process (up to 300 s per file — reverse-proxy timeout must allow this)
+   └─enqueue statement_jobs ──▶ background worker in the app process (WORKER_CONCURRENCY, default 2)
+     browser polls GET /api/statements/status; Retry = POST /api/statements/:id/process (re-queues)
         1 Upload      statements row, status uploaded
         2 Extract     PDF → Claude document block → schema-valid JSON  (CSV → papaparse + column mapping)
         3 Mask/normalise  last-4 only, ISO dates, pence, merchant clean-up (user rules → data/merchant-aliases.json)
@@ -72,6 +73,9 @@ browser ──POST /api/statements/upload──▶ disk volume (<user_id>/<uuid>
 - **Security**: the browser talks only to our origin; all AI and database work is server-side. RLS on every user table: the app connects as `cardlens_app` and sets `app.user_id` per transaction (`src/lib/db`). Strict CSP, HSTS, `X-Frame-Options: DENY`, no third-party scripts (fonts are self-hosted).
 - **Limits** (append-only `usage_events` ledger, so deleting statements doesn't reset them): 12 files/batch, 10 MB/file, `UPLOADS_PER_DAY` per user, `AI_CALLS_PER_USER_MONTH` per user, `AI_CALLS_PER_DAY` across everyone (kill switch). A parsed or in-flight statement can't be reprocessed. Waitlist: honeypot plus 5 sign-ups per hashed IP per hour. Token counts per Claude call are recorded for unit economics.
 - **Sign-up**: open to anyone. `SIGNIN_ALLOWLIST` (comma-separated emails) can restrict sign-in, for example for a closed beta.
+- **Plans**: Free / Annual Report £9 one-off / Side-Business £29 a year (`src/lib/plans.ts`). Every gated page, action and route uses `getAccessCached()` → `access.can(feature)`. `PAYMENTS_ENABLED=false` (default) unlocks everything and hides checkout. Stripe webhook: `POST /api/stripe/webhook` (signed, idempotent). Setup steps: [runbook](docs/runbooks/deploy.md#payments-stripe).
+- **Report periods**: calendar year (`2026`), UK tax year (`tax-2025` = 6 Apr 2025 – 5 Apr 2026) or 12 months from a month (`m-2025-11`), in `src/lib/period.ts`.
+- **Legal details** (company, address, privacy email, ICO number, hosting) live in one place: `src/lib/legal.ts`.
 - **Models** are set by env: `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_CATEGORISE_MODEL`.
 
 ## Layout
@@ -84,7 +88,9 @@ src/lib/summary/         schema, generate, validate, template
 src/prompts/             extract-statement, categorise, annual-summary
 src/data/merchant-aliases.json   ~200 UK merchants → name + category
 design/tokens.css        colour tokens (light + dark)
-db/migrations/           0001_init.sql (schema, RLS), 0002 (usage ledger, rate limits)
+db/migrations/           0001_init.sql (schema, RLS), 0002 (usage ledger, rate limits), 0003 (entitlements, jobs, report periods)
+src/lib/billing/         Stripe client, webhook event → entitlement change (pure), apply
+src/lib/plans.ts, period.ts, entitlements.ts, jobs.ts, worker.ts, legal.ts
 deploy/                  compose stack, edge site, ops.sh, setup-vps.sh, deploy.sh, tests/
 src/lib/db, auth.ts, session.ts, storage.ts, usage.ts   Postgres, Better Auth, files, limits
 fixtures/                sample statement extraction (reconciles) and CSVs
@@ -93,4 +99,4 @@ tests/unit, tests/db, tests/e2e
 
 ## Before launch
 
-ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]`, `[Hosting provider]` and `[location]` placeholders on `/privacy`; test with one real (redacted) statement from each of the first 4–5 issuers; keep the server's env vars in step with `.env.example`; complete the owner steps in [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
+ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `src/lib/legal.ts`; set up Stripe and switch `PAYMENTS_ENABLED` on only after that; test with one real (redacted) statement from each of the first 4–5 issuers; keep the server's env vars in step with `.env.example`; complete the owner steps in [docs/runbooks/deploy.md](docs/runbooks/deploy.md).

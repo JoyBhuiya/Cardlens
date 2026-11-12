@@ -64,11 +64,11 @@ sequenceDiagram
   participant M as Mailjet
   participant D as Postgres
   B->>A: POST login form (email)
-  A->>D: store verification token (Better Auth)
+  A->>D: store hashed 6-digit code, 15 min, 5 attempts (Better Auth email-OTP)
   A->>M: send sign-in email (allowlist check if set)
-  M-->>B: email with /api/auth/magic-link/verify?token=…
-  B->>A: open link
-  A->>D: verify + consume token, create user on first sign-in, create session
+  M-->>B: email with the code and a /login/code?email=…&code=… link
+  B->>A: type the code (or open the link and press Sign in)
+  A->>D: verify + consume code, create user on first sign-in, create session
   A-->>B: httpOnly session cookie, redirect to /app
   B->>A: GET /app/… (cookie)
   A->>D: getSession → user id
@@ -78,14 +78,17 @@ sequenceDiagram
 - `src/proxy.ts` only redirects `/app` to `/login` when no session cookie exists. Every page, action and API route
   checks the session itself (`requireUser()` / `getUser()`).
 - Sessions are database-backed (Better Auth `session` table); signing out or deleting the account ends them.
+- The link in the email only pre-fills the code: signing in needs a click, so mail scanners that open links can't
+  use up the code. Codes are stored hashed. Old magic links (sent before the switch) are no longer accepted.
 
 ## 4. Statement pipeline
 
 ```mermaid
 flowchart TD
   up["POST /api/statements/upload"] -->|"allowance check, magic bytes, owner path"| st1["statements row: uploaded<br/>file on disk"]
-  st1 --> proc["POST /api/statements/:id/process"]
-  proc -->|"atomic claim: only uploaded, failed, needs_review or stuck"| ex{"PDF or CSV?"}
+  st1 --> q[("statement_jobs: queued")]
+  q --> w["worker (in the app process)<br/>claims with FOR UPDATE SKIP LOCKED"]
+  w -->|"atomic claim: only uploaded, failed, needs_review or stuck"| ex{"PDF or CSV?"}
   ex -- "PDF" --> claude1["Claude: document → schema-valid JSON<br/>metered"]
   ex -- "CSV" --> csv["papaparse + column detection"]
   claude1 --> norm["normalise: last-4 only, ISO dates, pence, merchant names"]
@@ -98,6 +101,11 @@ flowchart TD
   recur --> done["statements row: parsed or needs_review<br/>file deleted unless kept"]
 ```
 
+- Processing runs in the background. Upload enqueues a job; a worker started from `src/instrumentation.ts`
+  (`WORKER_CONCURRENCY` loops, default 2) claims jobs from `statement_jobs` with `FOR UPDATE SKIP LOCKED`, so
+  closing the browser doesn't stop a file. Jobs left `running` for 10 minutes (a restart mid-file) are claimed
+  again; after 3 attempts the statement is marked failed. The uploader and Statements page poll
+  `GET /api/statements/status`. `POST /api/statements/:id/process` now only re-queues a file (Retry).
 - Each step before the database is pure (`src/lib/pipeline/*`). `run.ts` wires them together with the database and disk.
 - The statement is claimed with one `UPDATE … RETURNING`, so a parsed or in-flight statement can't run twice.
 - Errors written for users (`UserError`, `LimitError`) are shown; anything else is logged and replaced with a
@@ -119,6 +127,8 @@ erDiagram
   user ||--o{ categories : "owns (custom)"
   user ||--o{ reports : owns
   user ||--o{ usage_events : "ledger"
+  user ||--o{ entitlements : "plans"
+  statements ||--o| statement_jobs : "queued as"
   cards ||--o{ statements : "for"
   cards ||--o{ transactions : "on"
   statements ||--o{ transactions : "contains"
@@ -132,7 +142,10 @@ erDiagram
 | `transactions` | one line: date, merchant, amount in pence (always positive) + direction, kind, category, business and recurring flags, `dedupe_hash` (unique per user) |
 | `categories` | system categories (shared, read-only) and user-made ones |
 | `merchant_rules` | "this pattern is this merchant / category / business": applied on future imports |
-| `reports` | one per user and year: metrics JSON, summary JSON, model, AI or template |
+| `reports` | one per user and period (`period_key`: `2026`, `tax-2025`, `m-2025-11`): metrics JSON, summary JSON, model, AI or template |
+| `entitlements` | paid plans: plan, status, Stripe ids (unique), period end. The app can insert and update, not delete |
+| `stripe_events` | ids of processed Stripe webhook events (idempotency) |
+| `statement_jobs` | background processing queue, one row per statement (no RLS; only the worker and owner-checked routes touch it) |
 | `waitlist` | landing-page sign-ups (insert-only for the app) |
 | `usage_events` | append-only ledger: uploads and Claude calls with token counts |
 | `rate_limits` | fixed-window counters keyed by hashed IP |
@@ -150,13 +163,32 @@ All money is whole pence (`bigint`). Dates are `date` and are returned to the ap
   Files are mode 0600 on a volume only the app mounts.
 - **Spend control:** per-user upload and AI allowances, plus a global daily AI cap, all counted in the
   append-only ledger. Claude errors are metered too.
-- **Abuse:** Better Auth rate-limits magic-link requests per IP (5 per hour). The waitlist has a honeypot and
+- **Abuse:** Better Auth rate-limits code requests (5 per hour per IP and per email) and code checks (10 per 15 minutes); each code allows 5 attempts. The waitlist has a honeypot and
   5 per hashed IP per hour.
 - **Data handling:** card numbers are cut to the last 4 digits, statement files are deleted after parsing, no
   raw IPs are stored, and logs never contain email addresses, tokens or statement content.
 - **Headers:** strict CSP, HSTS (preload), `X-Frame-Options: DENY`, `nosniff`, a restrictive Permissions-Policy.
 
-## 7. Deployment and CI/CD
+## 7. Plans and payments
+
+- **Plans** live in `src/lib/plans.ts`: Free, Annual Report (£9 one-off, 12 months) and Side-Business (£29 a year).
+  Free covers upload, reconciliation, statements, transactions, the overview and a report preview. Insights, the
+  full report, PDF and CSV export need a paid plan; business/personal split and up to 3 cards need Side-Business.
+- **One check:** pages and actions call `getAccessCached()` → `access.can(feature)`. Actions and API routes enforce
+  it on the server too (`assertCan`, 403 `upgrade_required`).
+- **`PAYMENTS_ENABLED=false`** (the default) gives everyone every feature and hides checkout, so the live site
+  behaves as before until the owner switches it on.
+- **Checkout:** `/app/billing` → server action creates a Stripe Checkout session (payment mode for £9,
+  subscription for £29) with `metadata.user_id` and `plan`, and the 14-day cancellation acknowledgement.
+  Billing Portal handles cards, invoices and cancelling.
+- **Webhook** `POST /api/stripe/webhook`: verifies the signature, skips event ids already in `stripe_events`,
+  turns the event into one change (`src/lib/billing/events.ts`, pure and unit-tested) and upserts `entitlements`
+  keyed by Stripe ids, so replays and out-of-order events are safe. Subscription events re-read the subscription
+  from Stripe. A full refund of the £9 payment ends access.
+- Deleting all data cancels any live subscription first. Everyone can download all their data as JSON for free
+  (UK GDPR), even though CSV export is paid.
+
+## 8. Deployment and CI/CD
 
 ```mermaid
 flowchart LR
@@ -176,14 +208,17 @@ flowchart LR
 - Backups: a nightly dump (kept 14 days) plus one before every migration, on the server. Off-server copies are
   still open.
 
-## 8. Configuration
+## 9. Configuration
 All settings are environment variables, listed and explained in [`.env.example`](../.env.example). On the
 server they live in `/opt/cardlens/stack/.env` (created by `deploy/setup-vps.sh`, never committed).
 `SITE_URL` and every other setting is read at runtime, so one image runs anywhere.
 
-## 9. Known limits
+## 10. Known limits
 - One app instance. The Better Auth rate limiter and the database pool are per process, which is fine at this
   scale. More instances would need a shared rate-limit store.
-- Statement processing runs inside the HTTP request (up to 300 s), not in a job queue.
-- Reports cover calendar years. GBP only.
+- The worker runs inside the single app process; more instances would each run a worker (safe, thanks to
+  `SKIP LOCKED`), but there is no separate worker container yet.
+- Reports cover a calendar year, a UK tax year (6 April – 5 April) or any 12 months from a chosen month. GBP only.
+- Migration 0003 replaced the reports `(user_id, year)` unique key with `(user_id, period_key)`. Rolling back to
+  the release before it still serves pages, but generating a report there fails until rolled forward again.
 - Dark-mode tokens exist but nothing switches them on (see DESIGN.md).
