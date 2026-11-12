@@ -21,7 +21,14 @@ Production runs on Brightnext's own server at **https://cardlens.brightnext.eu**
 - **Env vars:** the server's `/opt/cardlens/stack/.env` (created by `deploy/setup-vps.sh`); keep it in step with `.env.example`. `SITE_URL` is read at runtime, so no rebuild is needed when it changes.
 - **Timeouts:** statement processing can take 1–2 minutes per PDF; the edge proxy allows 320 s (`deploy/edge/cardlens.caddy`).
 - **HTTPS required:** the app sends HSTS.
-- **Sign-in emails:** sent by the app through Mailjet's API (`MAILJET_API_KEY`, `MAILJET_API_SECRET`, `MAIL_FROM`); turn off click tracking for that key so magic links aren't rewritten.
+- **Sign-in emails:** sent by the app through Mailjet's API (`MAILJET_API_KEY`, `MAILJET_API_SECRET`, `MAIL_FROM`, optional `MAIL_REPLY_TO`) from the validated domain `brightnext.eu` (SPF + DKIM). The template is `src/lib/email/sign-in.ts`; click and open tracking are disabled on every send so one-time links aren't rewritten.
+
+## Working on Cardlens
+
+- Work on `main` (or short-lived branches with a PR). **Every push to `main` that passes CI goes live** on cardlens.brightnext.eu within a few minutes. Docs-only changes (`*.md`, `docs/`, `tasks/`) don't trigger CI or a deploy.
+- Before pushing, run `npm run check`. It's the same as CI and needs Docker plus `npx playwright install chromium` once.
+- If CI fails, nothing is deployed. If a release fails its health check on the server, the previous version is restored automatically and the GitHub run shows red.
+- Database changes: add a new file in `db/migrations/` (`NNNN_descriptive_name.sql`) and keep it backward-compatible (add columns nullable first, constrain later). Migrations run during the deploy, after a backup.
 
 ## Scripts
 
@@ -55,7 +62,7 @@ browser ──POST /api/statements/upload──▶ disk volume (<user_id>/<uuid>
 - **Every number** in the report is computed in `src/lib/analytics.ts`. Claude only writes words around the metrics; `src/lib/summary/validate.ts` rejects any £ figure that isn't in, or arithmetically derived from, the metrics, retries once, then falls back to `template.ts`.
 - **Security**: the browser talks only to our origin; all AI and database work is server-side. RLS on every user table: the app connects as `cardlens_app` and sets `app.user_id` per transaction (`src/lib/db`). Strict CSP, HSTS, `X-Frame-Options: DENY`, no third-party scripts (fonts are self-hosted).
 - **Limits** (append-only `usage_events` ledger, so deleting statements doesn't reset them): 12 files/batch, 10 MB/file, `UPLOADS_PER_DAY` per user, `AI_CALLS_PER_USER_MONTH` per user, `AI_CALLS_PER_DAY` across everyone (kill switch). A parsed or in-flight statement can't be reprocessed. Waitlist: honeypot plus 5 sign-ups per hashed IP per hour. Token counts per Claude call are recorded for unit economics.
-- **Closed beta**: `SIGNIN_ALLOWLIST` limits who receives a sign-in link.
+- **Sign-up**: open to anyone. `SIGNIN_ALLOWLIST` (comma-separated emails) can restrict sign-in, for example for a closed beta.
 - **Models** are set by env: `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_CATEGORISE_MODEL`.
 
 ## Layout

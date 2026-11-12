@@ -12,9 +12,12 @@ visitor ─https─> edge Caddy (TLS) ── docker network `edge` ──> cardl
 cardlens-app ──> Anthropic API, Mailjet (outbound through `edge`)
 ```
 
-## Before the first release (owner)
+## Prerequisites (all done for the live site)
 1. **DNS:** an `A` record `cardlens` in the `brightnext.eu` zone pointing at the VPS.
-2. **Mailjet:** a verified sender (for example `no-reply@brightnext.eu`) with SPF and DKIM for the domain.
+2. **Mailjet:** the domain `brightnext.eu` is validated in Mailjet (Senders & domains). SPF on the apex includes
+   `include:spf.mailjet.com`; there must be exactly one `v=spf1` record. DKIM is the TXT record
+   `mailjet._domainkey`. The app sends from `MAIL_FROM` (`no-reply@brightnext.eu`) with replies to
+   `MAIL_REPLY_TO` (`hello@brightnext.eu`). Click and open tracking are switched off in the code on every send.
 3. **Anthropic:** an API key for this app, with a monthly spend limit set in the Anthropic console.
 4. **Memory:** `docker stats --no-stream` on the host. Cardlens reserves about 1.1 GB (app 512 MB,
    Postgres 512 MB, backup 128 MB).
@@ -26,8 +29,13 @@ ssh <admin>@<server> sudo bash setup-vps.sh --dry-run
 ssh <admin>@<server> sudo bash setup-vps.sh
 ```
 Then fill in the empty values in `/opt/cardlens/stack/.env`: `MAILJET_API_KEY`, `MAILJET_API_SECRET`,
-`MAIL_FROM`, `ANTHROPIC_API_KEY`, `EDGE_CONTAINER`, `EDGE_SITES_DIR`, and `SIGNIN_ALLOWLIST` (comma-separated
-emails; keep it set during the closed beta).
+`MAIL_FROM`, `MAIL_REPLY_TO`, `ANTHROPIC_API_KEY`, `EDGE_CONTAINER` and `EDGE_SITES_DIR`. `SIGNIN_ALLOWLIST` is
+empty on the live site (anyone can sign up); set it to comma-separated emails to restrict sign-in.
+
+After changing `.env`, restart the app so it reads the new values (this keeps the recorded rollback target):
+```bash
+cd /opt/cardlens/stack && APP_VERSION=$(sed -n 's/^APP_VERSION=//p' release.env) docker compose up -d --no-deps cardlens-app
+```
 
 ## Release
 
@@ -70,5 +78,18 @@ On the server, in `/opt/cardlens/stack`:
 - Restore: `docker compose exec -T cardlens-postgres pg_restore -U cardlens -d cardlens --clean < ../backups/<file>.dump`.
   Test a restore once after the first release.
 
+## Troubleshooting
+- **Deploy job red in GitHub:** open the run's `deploy` log. A failed health or smoke check has already rolled
+  back to the previous release; fix the cause and push again. `skip: … no longer the head of main` is normal
+  when pushes overlap.
+- **`permission denied` on `~/.docker/buildx/.lock`:** files in `~ubuntu/.docker` owned by root (left by a
+  `sudo docker` run). `sudo chown -R ubuntu:ubuntu ~ubuntu/.docker` fixes it. Never run docker with sudo here.
+- **Sign-in mail in Junk at Outlook:** check the message source. If `spf`, `dkim` and `dmarc` all pass, it's
+  domain reputation, which improves as people mark it "Not junk". If testers keep hitting it, switch to
+  6-digit codes (Better Auth email-OTP plugin).
+- **Mailjet "sender not validated":** the domain lost its validation in Mailjet. Re-validate it under
+  Senders & domains (DNS TXT or a file on brightnext.eu).
+
 ## Not automated yet (owner decisions)
 - Off-server backup copies (bucket and encryption key).
+- A restore test from a real dump.
