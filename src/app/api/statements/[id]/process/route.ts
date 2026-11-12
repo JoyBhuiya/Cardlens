@@ -5,7 +5,8 @@ import { processStatement } from "@/lib/pipeline/run";
 import { getUser } from "@/lib/session";
 
 export const runtime = "nodejs";
-// Long statements take 60 s or more for Claude to read. The edge proxy allows 320 s for this route.
+// Long statements take 60 s or more for Claude to read; the reverse proxy must allow this too
+// (deploy/edge/cardlens.caddy allows 320 s).
 export const maxDuration = 300;
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {

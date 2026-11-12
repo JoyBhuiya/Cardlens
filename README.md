@@ -2,7 +2,7 @@
 
 Turns up to 12 months of UK credit card statements into a reconciled annual report: spend vs payments, where the money goes, and costed saving ideas with a professional summary.
 
-Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row-level security · Better Auth (magic link) · Claude API · Docker on a VPS at `cardlens.brightnext.eu`.
+Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row-level security · Better Auth (magic link) · Claude API · Mailjet for sign-in emails · self-hosted with Docker at https://cardlens.brightnext.eu.
 
 ## Setup
 
@@ -12,6 +12,16 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row
 4. `npm run dev` → http://localhost:3000. Sign-in mails land in `MAIL_OUTBOX_DIR` as JSON files when Mailjet isn't configured.
 
 Deploying: [docs/runbooks/deploy.md](docs/runbooks/deploy.md). Why no Supabase: [docs/adr/0001](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md).
+
+## Hosting
+
+Production runs on Brightnext's own server at **https://cardlens.brightnext.eu**: a Docker compose stack (app, Postgres, nightly backup) behind the server's Caddy, which handles TLS. Full steps: [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
+
+- **Deploy:** `DEPLOY_HOST=<server> deploy/deploy.sh` from a clean checkout of `main`. It runs `scripts/verify.sh`, builds the image on the server, backs up, migrates, swaps the app and rolls back on failure. Pushing to GitHub runs CI only; it does not deploy.
+- **Env vars:** the server's `/opt/cardlens/stack/.env` (created by `deploy/setup-vps.sh`); keep it in step with `.env.example`. `SITE_URL` is read at runtime, so no rebuild is needed when it changes.
+- **Timeouts:** statement processing can take 1–2 minutes per PDF; the edge proxy allows 320 s (`deploy/edge/cardlens.caddy`).
+- **HTTPS required:** the app sends HSTS.
+- **Sign-in emails:** sent by the app through Mailjet's API (`MAILJET_API_KEY`, `MAILJET_API_SECRET`, `MAIL_FROM`); turn off click tracking for that key so magic links aren't rewritten.
 
 ## Scripts
 
@@ -31,7 +41,7 @@ Deploying: [docs/runbooks/deploy.md](docs/runbooks/deploy.md). Why no Supabase: 
 ```
 browser ──POST /api/statements/upload──▶ disk volume (<user_id>/<uuid>.pdf|csv, owner-checked)
    │
-   └─POST /api/statements/:id/process (up to 300 s per file)
+   └─POST /api/statements/:id/process (up to 300 s per file — reverse-proxy timeout must allow this)
         1 Upload      statements row, status uploaded
         2 Extract     PDF → Claude document block → schema-valid JSON  (CSV → papaparse + column mapping)
         3 Mask/normalise  last-4 only, ISO dates, pence, merchant clean-up (user rules → data/merchant-aliases.json)
@@ -67,4 +77,4 @@ tests/unit, tests/db, tests/e2e
 
 ## Before launch
 
-ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]` placeholders and update the processor list on `/privacy` (hosting is now our own VPS; processors are Anthropic and Mailjet); test with one real (redacted) statement from each of the first 4–5 issuers; complete the owner steps in [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
+ICO registration, DPIA, legal review of `/privacy`, `/terms` and saving-idea wording; fill in `[Company name]`, `[Hosting provider]` and `[location]` placeholders on `/privacy`; test with one real (redacted) statement from each of the first 4–5 issuers; keep the server's env vars in step with `.env.example`; complete the owner steps in [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
