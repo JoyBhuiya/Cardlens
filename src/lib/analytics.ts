@@ -2,6 +2,7 @@ import { categoryName } from "@/lib/categories";
 import { LIMITS } from "@/lib/env";
 import { detectRecurring, type RecurringCharge } from "@/lib/pipeline/recurring";
 import { KIND_LABELS, TXN_KINDS, type TxnKind, type TxnRow } from "@/lib/types";
+import { calendarYear, inPeriod, type Period } from "@/lib/period";
 import { median, monthKey } from "@/lib/utils";
 
 export interface StatementBalanceRow {
@@ -13,7 +14,11 @@ export interface StatementBalanceRow {
 }
 
 export interface Metrics {
+  /** Start year of the period (kept for older stored reports). */
   year: number | null;
+  /** "2026", "tax-2025", "m-2025-11"; absent on reports stored before periods existed. */
+  period_key?: string | null;
+  period_label?: string | null;
   period_start: string | null;
   period_end: string | null;
   transaction_count: number;
@@ -54,10 +59,11 @@ function spendContribution(t: TxnRow): number {
 export function computeMetrics(
   txns: TxnRow[],
   statements: StatementBalanceRow[] = [],
-  opts: { year?: number | null; customCategoryNames?: Map<string, string> } = {},
+  opts: { period?: Period | null; year?: number | null; customCategoryNames?: Map<string, string> } = {},
 ): Metrics {
-  const year = opts.year ?? null;
-  const rows = year ? txns.filter((t) => t.posted_on.startsWith(String(year))) : txns;
+  const period = opts.period ?? (opts.year ? calendarYear(opts.year) : null);
+  const year = period?.startYear ?? null;
+  const rows = period ? txns.filter((t) => inPeriod(t.posted_on, period)) : txns;
 
   const byKind = new Map<TxnKind, { count: number; total: number }>();
   for (const k of TXN_KINDS) byKind.set(k, { count: 0, total: 0 });
@@ -132,7 +138,7 @@ export function computeMetrics(
   if (withBalances.length) {
     const byCard = new Map<string, StatementBalanceRow[]>();
     for (const s of withBalances) {
-      if (year && !(s.period_end ?? "").startsWith(String(year))) continue;
+      if (period && !inPeriod(s.period_end ?? "", period)) continue;
       const l = byCard.get(s.card_id) ?? [];
       l.push(s);
       byCard.set(s.card_id, l);
@@ -149,6 +155,8 @@ export function computeMetrics(
   const dates = rows.map((t) => t.posted_on).sort();
   return {
     year,
+    period_key: period?.key ?? null,
+    period_label: period?.label ?? null,
     period_start: dates[0] ?? null,
     period_end: dates[dates.length - 1] ?? null,
     transaction_count: rows.length,

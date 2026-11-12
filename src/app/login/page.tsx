@@ -19,10 +19,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <main id="main" className="flex flex-1 items-start justify-center px-6 pt-10">
         <Card className="w-full max-w-[440px] p-8">
           <h1 className="font-display text-2xl font-bold">Sign in to Cardlens</h1>
-          <p className="mt-2 text-[15px] text-muted">We&apos;ll email you a secure sign-in link. No password needed.</p>
+          <p className="mt-2 text-[15px] text-muted">We&apos;ll email you a 6-digit sign-in code. No password needed.</p>
           {error ? (
             <p role="alert" className="mt-4 rounded-[8px] bg-negative/10 px-3 py-2 text-sm text-negative">
-              That link has expired or was already used. Request a new one below.
+              That link has expired or was already used. Request a new code below.
             </p>
           ) : null}
           <LoginForm next={next && next.startsWith("/app") ? next : "/app"} />

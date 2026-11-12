@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { generateReport } from "@/app/app/report/actions";
 import { Button } from "@/components/ui";
 
-export function GenerateReportButton({ year, label = "Build report" }: { year: number; label?: string }) {
+export function GenerateReportButton({ periodKey, label = "Build report" }: { periodKey: string; label?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function GenerateReportButton({ year, label = "Build report" }: { year: n
         onClick={() =>
           start(async () => {
             setError(null);
-            const res = await generateReport(year);
+            const res = await generateReport(periodKey);
             if (res && "error" in res && res.error) setError(res.error);
             router.refresh();
           })

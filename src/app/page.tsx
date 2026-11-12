@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LEGAL } from "@/lib/legal";
 import { Logo } from "@/components/logo";
 import { buttonClasses } from "@/components/ui";
 import { WaitlistForm } from "@/components/waitlist-form";
@@ -234,7 +235,7 @@ export default function Landing() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-[1160px] flex-wrap justify-between gap-3 px-6 py-7 text-[13px] text-muted">
-          <span>Cardlens is a working name. © 2026 [Company name]. Budgeting insights only, not financial advice.</span>
+          <span>Cardlens is a working name. © 2026 {LEGAL.companyName}. Budgeting insights only, not financial advice.</span>
           <div className="flex gap-5">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

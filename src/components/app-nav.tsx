@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, FileText, LayoutDashboard, ListOrdered, Settings, Upload, Receipt } from "lucide-react";
+import { BarChart3, CreditCard, FileText, LayoutDashboard, ListOrdered, Settings, Upload, Receipt } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/app/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/app/insights", label: "Insights", icon: BarChart3 },
   { href: "/app/report", label: "Annual report", icon: FileText },
+  { href: "/app/billing", label: "Plan & billing", icon: CreditCard },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

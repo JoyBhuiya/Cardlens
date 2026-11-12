@@ -31,6 +31,14 @@ services:
       UPLOADS_PER_DAY: ${UPLOADS_PER_DAY:-60}
       AI_CALLS_PER_USER_MONTH: ${AI_CALLS_PER_USER_MONTH:-200}
       AI_CALLS_PER_DAY: ${AI_CALLS_PER_DAY:-1000}
+      # Payments stay off (early access, everything free) until PAYMENTS_ENABLED=true. Stripe keys may be test keys.
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PERSONAL: ${STRIPE_PRICE_PERSONAL:-}
+      STRIPE_PRICE_SIDE_BUSINESS: ${STRIPE_PRICE_SIDE_BUSINESS:-}
+      WORKER_ENABLED: ${WORKER_ENABLED:-true}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
     volumes:
       - statements:/data/statements
     read_only: true
