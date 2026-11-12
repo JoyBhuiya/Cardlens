@@ -30,14 +30,33 @@ Then fill in the empty values in `/opt/cardlens/stack/.env`: `MAILJET_API_KEY`, 
 emails; keep it set during the closed beta).
 
 ## Release
+
+**Automatic:** every push to `main` runs `.github/workflows/ci.yml`. When `verify` passes, the `deploy` job SSHes
+to the server with `deploy <sha>`. Its key is restricted in `~/.ssh/authorized_keys` to one forced command,
+`/opt/cardlens/stack/deploy-hook.sh` (`restrict`: no shell, no forwarding). The hook deploys only the commit that
+is the current head of `main` on GitHub. An older commit is skipped, because the newer push deploys itself. It
+downloads that commit, refreshes the stack files from it, and runs `ops.sh release <commit>`.
+
+**Manual** (fallback, same release path):
 ```bash
 DEPLOY_HOST=<server> DEPLOY_USER=<admin> deploy/deploy.sh
 ```
-It runs `scripts/verify.sh`, uploads the commit and the stack files, then `ops.sh release <commit>` on the
-server: build the image → start Postgres → back up (`backups/pre-<commit>-*.dump`) → migrate → start the app →
-wait for health → install the edge site (validate everything, restore on failure, then reload) → smoke check
-`https://cardlens.brightnext.eu/healthz` and the CSP header. On any failure it starts the previous release again.
-Migrations must stay backward-compatible (add first, constrain later), so the previous app keeps working.
+It runs `scripts/verify.sh`, uploads the commit and the stack files, then runs `ops.sh release <commit>`.
+
+Either way, `ops.sh release` builds the image, starts Postgres, backs up (`backups/pre-<commit>-*.dump`),
+migrates, starts the app, waits for health, installs the edge site (validate everything, restore on failure,
+then reload) and smoke-checks `https://cardlens.brightnext.eu/healthz` and the CSP header. On any failure it
+starts the previous release again. Only one release runs at a time (lock in `ops.sh`). Migrations must stay
+backward-compatible (add first, constrain later), so the previous app keeps working.
+
+### Auto-deploy setup (once)
+1. Make a key pair locally: `ssh-keygen -t ed25519 -N "" -C "github-actions deploy -> cardlens" -f ~/.ssh/cardlens_actions_deploy`.
+2. On the server, append the public key to `~/.ssh/authorized_keys` as
+   `command="/opt/cardlens/stack/deploy-hook.sh",restrict ssh-ed25519 AAAA… github-actions deploy -> cardlens`.
+3. Add repository secrets: `VPS_HOST` (server address), `VPS_SSH_KEY` (the private key file),
+   `VPS_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 <server>`). Then delete the local private key.
+Without the secrets, the deploy job ends with a notice and stays green. To revoke, delete that line from
+`authorized_keys`.
 
 Tested end to end on a laptop with `bash deploy/tests/local-stack.sh` (mock edge, Playwright through it, a
 broken release that rolls back).
@@ -53,4 +72,3 @@ On the server, in `/opt/cardlens/stack`:
 
 ## Not automated yet (owner decisions)
 - Off-server backup copies (bucket and encryption key).
-- GitHub Actions deploy: deploys go from the laptop for now; CI only verifies.

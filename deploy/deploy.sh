@@ -16,7 +16,7 @@ SHA="$(git rev-parse HEAD)"
 echo "==> uploading $SHA"
 # shellcheck disable=SC2029 # the commit is meant to expand on this machine
 git archive --format=tar "$SHA" | ssh "$USER_AT" "set -e; d=/opt/cardlens/src/$SHA; mkdir -p \$d; tar -x -C \$d"
-tar -C deploy -cf - compose.yaml ops.sh edge | ssh "$USER_AT" "tar -x -C /opt/cardlens/stack && chmod 750 /opt/cardlens/stack/ops.sh"
+tar -C deploy -cf - compose.yaml ops.sh deploy-hook.sh edge | ssh "$USER_AT" "tar -x -C /opt/cardlens/stack && chmod 750 /opt/cardlens/stack/ops.sh /opt/cardlens/stack/deploy-hook.sh"
 
 echo "==> releasing"
 # shellcheck disable=SC2029

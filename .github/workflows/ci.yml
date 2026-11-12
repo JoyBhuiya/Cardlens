@@ -1,6 +1,9 @@
 name: ci
-# Runs scripts/verify.sh, the same script developers run before pushing: typecheck, lint, unit tests,
-# Postgres (Docker) with migrations and database tests, production build, Playwright. No secrets.
+# verify: scripts/verify.sh, the same script developers run before pushing (typecheck, lint, unit tests,
+# Postgres in Docker with migrations and database tests, production build, Playwright). No secrets.
+# deploy: on pushes to main only, after verify passed. Asks the server to deploy this commit; the server's
+# forced-command hook (deploy/deploy-hook.sh) deploys only the current head of main and does the release with
+# backup, migrations, health check, smoke check and automatic rollback. Runbook: docs/runbooks/deploy.md.
 on:
   push:
     branches: [main]
@@ -10,7 +13,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; runs on main finish, so a deploy is never cut off halfway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -26,3 +30,42 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: bash scripts/verify.sh
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: deploy-vps
+      cancel-in-progress: false
+    steps:
+      - name: Check deployment settings
+        id: cfg
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          missing=()
+          for name in VPS_HOST VPS_SSH_KEY VPS_KNOWN_HOSTS; do [ -n "${!name}" ] || missing+=("$name"); done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::notice title=Deploy skipped::Not configured (missing: ${missing[*]}). See docs/runbooks/deploy.md."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy this commit
+        if: steps.cfg.outputs.enabled == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The key's forced command ignores everything except `deploy <sha>`.
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 "ubuntu@$VPS_HOST" "deploy $GITHUB_SHA"

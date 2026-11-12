@@ -17,7 +17,7 @@ Deploying: [docs/runbooks/deploy.md](docs/runbooks/deploy.md). Why no Supabase: 
 
 Production runs on Brightnext's own server at **https://cardlens.brightnext.eu**: a Docker compose stack (app, Postgres, nightly backup) behind the server's Caddy, which handles TLS. Full steps: [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
 
-- **Deploy:** `DEPLOY_HOST=<server> deploy/deploy.sh` from a clean checkout of `main`. It runs `scripts/verify.sh`, builds the image on the server, backs up, migrates, swaps the app and rolls back on failure. Pushing to GitHub runs CI only; it does not deploy.
+- **Deploy:** automatic. Every push to `main` runs CI (`verify`), then the `deploy` job releases that commit on the server: build, backup, migrate, swap, smoke check, rollback on failure. Manual fallback: `DEPLOY_HOST=<server> deploy/deploy.sh` from a clean checkout of `main`.
 - **Env vars:** the server's `/opt/cardlens/stack/.env` (created by `deploy/setup-vps.sh`); keep it in step with `.env.example`. `SITE_URL` is read at runtime, so no rebuild is needed when it changes.
 - **Timeouts:** statement processing can take 1–2 minutes per PDF; the edge proxy allows 320 s (`deploy/edge/cardlens.caddy`).
 - **HTTPS required:** the app sends HSTS.

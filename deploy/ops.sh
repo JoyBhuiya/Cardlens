@@ -83,6 +83,12 @@ release() {
   local sha="${1:?usage: ops.sh release <commit>}" src="$ROOT/src/$1" prev
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "commit must be a full 40-character sha" >&2; exit 1; }
   [ -d "$src" ] || { echo "$src missing (deploy.sh uploads it)" >&2; exit 1; }
+  # One release at a time: laptop deploys and GitHub Actions deploys wait for each other.
+  # (flock is part of util-linux on the server; the macOS stack test runs without it.)
+  if command -v flock >/dev/null; then
+    exec 9>"$STACK/.release.lock"
+    flock -w 1200 9 || { echo "another release is still running" >&2; exit 1; }
+  fi
   docker network inspect edge >/dev/null 2>&1 || { echo "docker network 'edge' missing" >&2; exit 1; }
   prev="$(current)"
 
