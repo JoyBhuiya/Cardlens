@@ -11,7 +11,16 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Postgres 16 with row
 3. `npm install && npm run db:migrate` (uses `MIGRATION_DATABASE_URL`; `APP_DB_PASSWORD` sets the app role's password).
 4. `npm run dev` → http://localhost:3000. Sign-in mails land in `MAIL_OUTBOX_DIR` as JSON files when Mailjet isn't configured.
 
-Deploying: [docs/runbooks/deploy.md](docs/runbooks/deploy.md). Why no Supabase: [docs/adr/0001](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md).
+## Docs
+
+| Doc | What's in it |
+|---|---|
+| [docs/PRD.md](docs/PRD.md) | Problem, users, what exists today, principles, open product decisions |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System, code layout, auth flow, statement pipeline, data model, security, CI/CD (with diagrams) |
+| [docs/DESIGN.md](docs/DESIGN.md) | Colour, type, components, charts, layout, print, writing, accessibility |
+| [docs/runbooks/deploy.md](docs/runbooks/deploy.md) | Server setup, auto-deploy, operating, troubleshooting |
+| [docs/adr/](docs/adr/) | Decisions: [0001 self-hosted Postgres instead of Supabase](docs/adr/0001-self-hosted-postgres-instead-of-supabase.md) |
+| [tasks/todo.md](tasks/todo.md) | Done and open work |
 
 ## Hosting
 
