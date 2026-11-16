@@ -4,7 +4,7 @@
  */
 export const LEGAL = {
   /** Operating entity and seller of record, e.g. "Example Ltd (company no. 12345678)". */
-  companyName: "[Company name]",
+  companyName: "Brightnext Goods and Services Ltd",
   /** Registered office address, required on the terms once trading. */
   companyAddress: "[registered address]",
   /** Where people send privacy requests. */
