@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Check } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CheckoutButton, PortalButton } from "@/components/billing-buttons";
-import { Badge, Card, PageHeader } from "@/components/ui";
+import { PlanComparison } from "@/components/plan-comparison";
+import { Card, PageHeader } from "@/components/ui";
 import { getAccess } from "@/lib/entitlements";
 import { PAID_PLANS, planName, type PlanId } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Plan & billing" };
-
-const FREE_POINTS = ["Upload and reconcile statements", "Statements and Transactions", "Overview headline numbers", "Report preview", "1 card"];
 
 interface EntitlementView {
   plan: "personal" | "side_business";
@@ -80,37 +78,25 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <PlanCard name="Free" price="£0" unit="" points={FREE_POINTS} current={access.paymentsEnabled && access.plan === "free"} />
-        {PAID_PLANS.map((p) => (
-          <PlanCard
-            key={p.id}
-            name={p.name}
-            price={p.priceLabel}
-            unit={p.unit}
-            points={p.points}
-            featured={p.id === "side_business"}
-            current={access.paymentsEnabled && access.plan === p.id}
-            action={
-              !access.paymentsEnabled ? (
-                <span className="text-sm font-semibold text-muted">Available at launch</span>
-              ) : canBuy(access.plan, p.id) ? (
-                <CheckoutButton plan={p.id} label={access.plan === "personal" && p.id === "side_business" ? "Upgrade" : p.mode === "payment" ? `Buy for ${p.priceLabel}` : "Subscribe"} />
-              ) : null
-            }
-          />
-        ))}
-        <PlanCard
-          name="Professional"
-          price="£49"
-          unit="per seat / month"
-          points={["Unlimited client reports", "Your branding on every PDF", "Bulk upload across banks"]}
-          action={<Badge>Coming soon</Badge>}
-        />
-      </div>
+      <PlanComparison
+        current={access.paymentsEnabled ? access.plan : undefined}
+        actions={Object.fromEntries(
+          PAID_PLANS.map((p) => [
+            p.id,
+            !access.paymentsEnabled ? (
+              <span className="text-sm font-semibold text-muted">Available at launch</span>
+            ) : canBuy(access.plan, p.id) ? (
+              <CheckoutButton
+                plan={p.id}
+                label={access.plan === "personal" && p.id === "side_business" ? "Upgrade" : p.mode === "payment" ? `Buy for ${p.priceLabel}` : "Subscribe"}
+              />
+            ) : null,
+          ]),
+        )}
+      />
       <p className="mt-6 max-w-prose text-[13px] text-muted">
         Prices include VAT where applicable. Payments are handled by Stripe; Cardlens never sees your card details. The Annual Report is a one-off
-        payment for 12 months of access. Side-Business renews every year until you cancel, which you can do at any time from Manage billing.
+        payment for 12 months of access and doesn&apos;t renew. Side-Business renews every year until you cancel, which you can do at any time from Manage billing.
       </p>
     </>
   );
@@ -120,44 +106,4 @@ function canBuy(current: PlanId, target: "personal" | "side_business"): boolean 
   if (current === "side_business") return false;
   if (current === "personal") return target === "side_business";
   return true;
-}
-
-function PlanCard({
-  name,
-  price,
-  unit,
-  points,
-  action,
-  current,
-  featured,
-}: {
-  name: string;
-  price: string;
-  unit: string;
-  points: string[];
-  action?: React.ReactNode;
-  current?: boolean;
-  featured?: boolean;
-}) {
-  return (
-    <Card className={cn("flex flex-col gap-4 p-6", featured && "border-2 border-brand")}>
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="font-display text-lg font-semibold">{name}</h2>
-        {current ? <Badge tone="brand">Current plan</Badge> : null}
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-display text-3xl font-bold">{price}</span>
-        {unit ? <span className="text-sm text-muted">{unit}</span> : null}
-      </div>
-      <ul className="flex flex-col gap-2 text-[15px]">
-        {points.map((pt) => (
-          <li key={pt} className="flex gap-2">
-            <Check size={18} className="mt-0.5 flex-none text-brand" aria-hidden="true" />
-            {pt}
-          </li>
-        ))}
-      </ul>
-      {action ? <div className="mt-auto pt-2">{action}</div> : null}
-    </Card>
-  );
 }

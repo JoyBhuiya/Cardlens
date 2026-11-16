@@ -10,7 +10,11 @@ test("landing renders the approved sections", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your year on your credit card, explained.");
   for (const id of ["how", "who", "trust", "waitlist"]) await expect(page.locator(`#${id}`)).toBeVisible();
-  await expect(page.getByText("£29")).toBeVisible();
+  await expect(page.locator("#who").getByText("£29").first()).toBeVisible();
+  // Plan comparison: table on wide screens, one card per plan on phones.
+  const plans = page.locator("#plans");
+  await expect(plans.getByRole("heading", { name: "Compare plans" })).toBeVisible();
+  await expect(plans.getByText("Accountant-ready CSV export").filter({ visible: true }).first()).toBeVisible();
 });
 
 test("waitlist sign-up shows confirmation", async ({ page }) => {
