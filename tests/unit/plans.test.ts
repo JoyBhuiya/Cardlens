@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessFor, currentPlan, planFor, type EntitlementRow } from "@/lib/plans";
+import { PLAN_COMPARISON, accessFor, currentPlan, planFor, type EntitlementRow, type PlanId } from "@/lib/plans";
 
 const NOW = new Date("2026-11-13T12:00:00Z");
 const row = (plan: EntitlementRow["plan"], status: EntitlementRow["status"], end: string | null): EntitlementRow => ({ plan, status, current_period_end: end });
@@ -52,5 +52,32 @@ describe("planFor", () => {
     expect(planFor("insights")).toBe("personal");
     expect(planFor("csv_export")).toBe("side_business");
     expect(planFor("business_split")).toBe("side_business");
+  });
+});
+
+describe("plan comparison table", () => {
+  const plans: PlanId[] = ["free", "personal", "side_business"];
+  const rows = PLAN_COMPARISON.flatMap((g) => g.rows);
+
+  it("matches the access check for every feature row", () => {
+    for (const row of rows.filter((r) => r.feature)) {
+      for (const plan of plans) {
+        // A note on a plan that doesn't have the feature ("Preview: …") counts as not included.
+        const promised = row.values[plan] === true;
+        expect(accessFor(plan, true).can(row.feature!), `${row.label} / ${plan}`).toBe(promised);
+      }
+    }
+  });
+
+  it("matches the card limits", () => {
+    const cards = rows.find((r) => r.cards)!;
+    for (const plan of plans) {
+      expect(String(cards.values[plan])).toContain(String(accessFor(plan, true).maxCards));
+    }
+  });
+
+  it("covers every paid feature", () => {
+    const shown = new Set(rows.map((r) => r.feature).filter(Boolean));
+    expect([...shown].sort()).toEqual(["business_split", "csv_export", "full_report", "insights", "pdf"]);
   });
 });

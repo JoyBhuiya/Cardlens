@@ -40,19 +40,21 @@ Plans are built (Stripe Checkout, test mode). Payments stay switched off in prod
   and categorised (user rules → built-in merchant list → Claude). Recurring charges are detected (3+ months).
 - **Statements page:** status per file, reconciliation result, retry for failed or interrupted files, delete.
 - **Transactions page:** filter by month, card, type, category, business/personal and text; change a category or
-  the business flag for one line or for every line from that merchant (remembered as a rule); CSV export.
+  the business flag for one line or for every line from that merchant (remembered as a rule); CSV export (Side-Business).
 - **Overview:** headline numbers, spend vs payments by month, top categories, recurring charges, and a prompt
   when statements need attention.
 - **Insights** per calendar year, UK tax year or any 12 months: month by month, spending by category, top merchants, recurring charges, business share,
   foreign-currency spend.
 - **Annual report** per calendar year, UK tax year (6 April – 5 April) or any 12 months: headline numbers, an AI-written summary whose every £ figure is checked
   against the computed numbers (otherwise a template summary is used), costed saving ideas, PDF (print) and
-  CSV download.
+  CSV download (CSV with Side-Business).
 - **Settings:** cards, custom categories, remembered merchant rules, download all my data (JSON, free), delete all
   my data (cancels any subscription first).
-- **Plans & billing:** Free; Annual Report £9 one-off (12 months: Insights, full report, PDF, CSV); Side-Business
-  £29 a year (adds business/personal split and up to 3 cards); Professional £49 shown as "coming soon". Free users
-  see headline numbers in a report preview with an upgrade prompt.
+- **Plans & billing:** Free; Annual Report £9 one-off (12 months: Insights, full report, PDF); Side-Business
+  £29 a year (adds business/personal split, accountant-ready CSV export and up to 3 cards); Professional £49 shown
+  as "coming soon". Free users see headline numbers in a report preview with an upgrade prompt. A side-by-side
+  comparison (`PLAN_COMPARISON` in `src/lib/plans.ts`, tested against the access rules) is shown on Plan & billing
+  and the landing page.
 - **Limits:** uploads per day and AI calls per user per month, plus a global daily AI cap.
 
 ## Principles

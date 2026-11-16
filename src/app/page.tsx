@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlanComparison } from "@/components/plan-comparison";
 import { LEGAL } from "@/lib/legal";
 import { Logo } from "@/components/logo";
 import { buttonClasses } from "@/components/ui";
@@ -37,7 +38,7 @@ const STEPS = [
   {
     step: "Step 3",
     title: "Get your report",
-    body: "A professional summary of your year, where you spend most, and specific, costed ways to save. Download as PDF or CSV.",
+    body: "A professional summary of your year, where you spend most, and specific, costed ways to save. Download it as a PDF.",
     icon: (
       <>
         <rect x="6" y="3" width="20" height="26" rx="3" stroke="currentColor" strokeWidth="2.2" />
@@ -209,6 +210,16 @@ export default function Landing() {
                 </div>
               </div>
             ))}
+          </div>
+          <div id="plans" className="flex flex-col gap-4">
+            <div className="flex max-w-[640px] flex-col gap-2">
+              <h3 className="font-display text-[24px] font-semibold">Compare plans</h3>
+              <p className="text-base leading-relaxed text-muted">
+                Start free: upload your statements, check them and browse every transaction. Pay only for the full report and the extras you
+                need.
+              </p>
+            </div>
+            <PlanComparison />
           </div>
         </section>
 

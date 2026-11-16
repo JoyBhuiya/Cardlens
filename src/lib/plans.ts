@@ -99,3 +99,107 @@ export function accessFor(plan: PlanId, paymentsEnabled: boolean): Access {
 export function planFor(feature: Feature): PaidPlanId {
   return FEATURES.personal.includes(feature) ? "personal" : "side_business";
 }
+
+/* ------------------------------------------------------------------------------------------------------------
+ * Plan comparison: what each plan includes, shown on /app/billing and the landing page. Rows tied to a
+ * Feature (or to the card limit) are checked against FEATURES / MAX_CARDS in tests/unit/plans.test.ts, so the
+ * table can't promise something the access check doesn't give.
+ * ---------------------------------------------------------------------------------------------------------- */
+
+export type ComparisonColumn = PlanId | "professional";
+/** true = included, false = not included, string = included with this note. */
+export type ComparisonValue = boolean | string;
+
+export interface ComparisonRow {
+  label: string;
+  /** Short explanation under the label. */
+  hint?: string;
+  feature?: Feature;
+  cards?: true;
+  values: Record<ComparisonColumn, ComparisonValue>;
+}
+
+export interface ComparisonGroup {
+  title: string;
+  rows: ComparisonRow[];
+}
+
+export interface ComparisonPlan {
+  id: ComparisonColumn;
+  name: string;
+  price: string;
+  unit: string;
+  /** How you pay, in plain words. */
+  billing: string;
+  comingSoon?: boolean;
+}
+
+export const COMPARISON_PLANS: readonly ComparisonPlan[] = [
+  { id: "free", name: "Free", price: "£0", unit: "", billing: "Free, no card needed" },
+  { id: "personal", name: "Annual Report", price: "£9", unit: "one-off", billing: "Pay once, 12 months of access" },
+  { id: "side_business", name: "Side-Business", price: "£29", unit: "per year", billing: "Yearly subscription, cancel any time" },
+  { id: "professional", name: "Professional", price: "£49", unit: "per seat / month", billing: "Monthly, per seat", comingSoon: true },
+];
+
+const ALL = { free: true, personal: true, side_business: true, professional: true } as const;
+
+export const PLAN_COMPARISON: readonly ComparisonGroup[] = [
+  {
+    title: "Read and check your statements",
+    rows: [
+      { label: "Upload PDF and CSV statements", hint: "Up to 12 files at a time, read in the background", values: ALL },
+      { label: "Balances checked to the penny", hint: "Every statement reconciled; duplicates removed", values: ALL },
+      { label: "Statements and Transactions", hint: "Search, filter and fix categories", values: ALL },
+      { label: "Overview", hint: "Headline numbers and spend vs payments by month", values: ALL },
+      { label: "Download all your data", hint: "Everything we hold about you, any time", values: ALL },
+      {
+        label: "Cards",
+        cards: true,
+        values: { free: "1 card", personal: "1 card", side_business: "Up to 3 cards", professional: "Per client" },
+      },
+    ],
+  },
+  {
+    title: "Understand your year",
+    rows: [
+      {
+        label: "Annual report",
+        hint: "Calendar year, UK tax year or any 12 months",
+        feature: "full_report",
+        values: { free: "Preview (headline numbers)", personal: true, side_business: true, professional: true },
+      },
+      { label: "AI-written summary and costed saving ideas", feature: "full_report", values: { free: false, personal: true, side_business: true, professional: true } },
+      {
+        label: "Insights",
+        hint: "Categories, merchants, subscriptions, foreign spend",
+        feature: "insights",
+        values: { free: false, personal: true, side_business: true, professional: true },
+      },
+      { label: "Report as PDF", feature: "pdf", values: { free: false, personal: true, side_business: true, professional: true } },
+    ],
+  },
+  {
+    title: "For a side business",
+    rows: [
+      {
+        label: "Business vs personal split",
+        hint: "Flag business spend, filter it and see its share",
+        feature: "business_split",
+        values: { free: false, personal: false, side_business: true, professional: true },
+      },
+      {
+        label: "Accountant-ready CSV export",
+        feature: "csv_export",
+        values: { free: false, personal: false, side_business: true, professional: true },
+      },
+    ],
+  },
+  {
+    title: "For professionals (coming soon)",
+    rows: [
+      { label: "Unlimited client reports", values: { free: false, personal: false, side_business: false, professional: true } },
+      { label: "Your branding on every PDF", values: { free: false, personal: false, side_business: false, professional: true } },
+      { label: "Bulk upload across banks", values: { free: false, personal: false, side_business: false, professional: true } },
+    ],
+  },
+];
