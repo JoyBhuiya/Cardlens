@@ -30,6 +30,14 @@ function createAuth() {
       // The edge proxy sets X-Forwarded-For; the app is reachable only through it.
       ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
     },
+    // Data minimisation: rate limiting reads the IP from the request, so sessions don't need to keep it, nor
+    // the browser string (there is no "your devices" page).
+    databaseHooks: {
+      session: {
+        create: { before: async (session) => ({ data: { ...session, ipAddress: null, userAgent: null } }) },
+        update: { before: async (session) => ({ data: { ...session, ipAddress: null, userAgent: null } }) },
+      },
+    },
     rateLimit: {
       enabled: process.env.NODE_ENV === "production",
       window: 60,

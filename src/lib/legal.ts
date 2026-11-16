@@ -14,7 +14,12 @@ export const LEGAL = {
   /** Who runs the server (cardlens.brightnext.eu, its database and file storage) and where it is. */
   hostingProvider: "[Hosting provider]",
   hostingLocation: "[location]",
-  privacyUpdated: "13 November 2026",
+  /**
+   * EU representative (EU GDPR Art. 27), needed once Cardlens is offered to people in the EU. Leave "" while
+   * the service is for UK customers only; the privacy notice then says so.
+   */
+  euRepresentative: "",
+  privacyUpdated: "16 November 2026",
   termsUpdated: "13 November 2026",
 } as const;
 

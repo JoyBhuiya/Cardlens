@@ -17,6 +17,11 @@
 - [x] Plans + entitlements, Stripe Checkout / Portal / webhook (idempotent), `PAYMENTS_ENABLED` switch
 - [x] Legal placeholders in one place (`src/lib/legal.ts`), Stripe in privacy/terms, free data download
 
+## Done (branch feat/retention-and-compliance)
+- [x] Inactive-account deletion (13 months, 30-day email warning), leftover file purge, expired codes/sessions purge
+- [x] Sessions keep no IP or user agent; privacy notice rewritten (lawful bases, AI use, transfers, retention table, complaints)
+- [x] Saving ideas reworded as information; validator blocks repayment advice; MoneyHelper signpost; AI label on summary
+
 ## Open
 - [ ] Joy: disconnect the old Vercel project and delete the Supabase project
 - [ ] Run one real PDF statement through the live site (Anthropic path in production); check cost in `usage_events`
@@ -28,6 +33,13 @@
 - [ ] ICO fee, UK representative check (UK GDPR Art. 27), DPIA
 - [ ] Fill `src/lib/legal.ts` (company name and number, registered address, privacy email, ICO number, hosting provider and location); have privacy/terms reviewed
 - [ ] Measure cost per statement from `usage_events` tokens before fixing prices
+
+## Compliance before marketing (see the UK/EU compliance checklist doc)
+- [ ] Legal review of the debt-counselling question (FCA PERG 17) and of the "Health and pharmacy" category (UK GDPR Art. 9)
+- [ ] DPIA; record of processing; breach log; data protection complaints process (DUAA, from 19 June 2026)
+- [ ] Anthropic: accept the DPA; ask about zero data retention
+- [ ] Waitlist: delete entries after launch (owner-only table)
+- [ ] EU: appoint an Art. 27 representative before marketing to people in the EU
 
 ## Turning payments on
 - [ ] Stripe account (test mode first): products £9 one-off and £29 yearly, Customer Portal, webhook (see runbook)

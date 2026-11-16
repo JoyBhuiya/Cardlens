@@ -133,7 +133,12 @@ export default async function ReportPage({ params }: { params: Promise<{ period:
 
       <Card className="avoid-break mt-6">
         <CardBody className="flex flex-col gap-4">
-          <h2 className="font-display text-xl font-semibold">Executive summary</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-display text-xl font-semibold">Executive summary</h2>
+            {report.summary_source === "ai" ? (
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-muted">Written with AI · figures checked</span>
+            ) : null}
+          </div>
           <p className="max-w-prose text-[16px] leading-relaxed">{s.executive_summary}</p>
           <h3 className="mt-2 font-display text-base font-semibold">Key findings</h3>
           <ol className="list-decimal pl-5 text-[15px] leading-relaxed">
@@ -233,7 +238,7 @@ export default async function ReportPage({ params }: { params: Promise<{ period:
             <p className="text-muted">No obvious savings — nicely managed.</p>
           )}
           <p className="mt-4 text-xs text-muted">
-            Budgeting guidance based only on your statement data. Not financial advice. {report.summary_source === "template" ? "Summary generated from a standard template." : "Summary written with AI from the figures above and checked against them."}
+            General budgeting information based only on your statement data. Not financial or debt advice; for free, impartial help see MoneyHelper (moneyhelper.org.uk). {report.summary_source === "template" ? "Summary generated from a standard template." : "Summary written with AI from the figures above and checked against them."}
           </p>
         </CardBody>
       </Card>

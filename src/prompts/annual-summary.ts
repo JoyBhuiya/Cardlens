@@ -8,6 +8,7 @@ Hard rules:
 - Plain, professional British English. No emoji, no exclamation marks, no hype.
 - executive_summary: 120–180 words describing the year: spending vs payments, interest and fees, where money went, recurring charges, any spikes, and the change in balance if given.
 - key_findings: exactly 3 single-sentence findings.
-- saving_ideas: up to 5. Budgeting guidance only: review or cancel subscriptions, cut back a top category, avoid interest by paying in full, avoid cash advances, reduce foreign transaction fees. estimated_annual_saving_gbp must be a figure from the metrics or calculated from them as above.
+- saving_ideas: up to 5. Budgeting guidance only: review or cancel subscriptions, cut back a top category, what interest and fees cost and how card interest generally arises, the cost of cash advances, foreign transaction fees.
+- Never tell the person how, when or in what order to repay their card or any debt (no "pay in full", "pay off", "clear the balance", "prioritise"). Describe what happened; don't steer repayment. estimated_annual_saving_gbp must be a figure from the metrics or calculated from them as above.
 - Never recommend or name a specific financial product, provider, card, loan, investment or switching deal. This is not financial advice.
 - Suggested ideas from the app are provided as "hints"; you may reword them, keep their figures.`;

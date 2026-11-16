@@ -90,6 +90,23 @@ describe("summary validator", () => {
     bad.saving_ideas[0].detail = "Apply for a 0% card to move your balance.";
     expect(validateSummary(bad, m).ok).toBe(false);
   });
+  it("rejects advice on how to repay the card (possible regulated debt counselling)", () => {
+    for (const line of [
+      "Paying the full balance by the due date each month avoids this.",
+      "Pay off the card before the holiday spending.",
+      "Prioritise clearing your balance over other bills.",
+      "Clear your balance each month to save interest.",
+    ]) {
+      const bad = templateSummary(m);
+      bad.saving_ideas[0].detail = line;
+      expect(validateSummary(bad, m).problems.join(" "), line).toMatch(/repayment advice/);
+    }
+  });
+  it("allows describing interest without steering repayment", () => {
+    const ok = templateSummary(m);
+    ok.saving_ideas[0].detail = "Card interest is generally charged on any balance left after the due date.";
+    expect(validateSummary(ok, m).problems.filter((p) => p.includes("repayment"))).toEqual([]);
+  });
   it("the template fallback always passes its own validator", () => {
     const v = validateSummary(templateSummary(m), m);
     expect(v.problems).toEqual([]);

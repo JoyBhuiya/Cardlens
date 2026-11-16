@@ -109,5 +109,11 @@ export function validateSummary(summary: AnnualSummary, metrics: Metrics): Valid
   const banned = /\b(balance transfer card|0% card|zero per ?cent card|switch (to|your) (a )?(card|provider|bank)|apply for|loan|ISA|invest(ing|ment)? in|crypto|pension)\b/i;
   for (const t of texts) if (banned.test(t)) problems.push(`Contains product advice: "${t.slice(0, 80)}…"`);
 
+  // Telling this person how or when to repay their card could be regulated debt counselling (FCA PERG 17):
+  // describe what happened, never steer repayment.
+  const repayment =
+    /\b(pay(ing)? (it |this |the card |your card )?(off|down)|pay(ing)? (the |your )?(full|whole|entire) (balance|amount)|pay(ing)? in full|clear(ing)? (the|your) (balance|debt|card)|repay(ing)?|prioriti[sz]e|minimum payment(s)? only|debt (plan|solution|management))\b/i;
+  for (const t of texts) if (repayment.test(t)) problems.push(`Contains repayment advice: "${t.slice(0, 80)}…"`);
+
   return { ok: problems.length === 0, ungrounded, problems };
 }
