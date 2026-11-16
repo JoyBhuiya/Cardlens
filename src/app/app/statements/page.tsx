@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, EmptyState, PageHeader, Table, Td, Th, buttonClasses } from "@/components/ui";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { StatementActions } from "@/components/statement-actions";
 import { cardLabel, getCards } from "@/lib/data";
 import { formatPence } from "@/lib/money";
@@ -14,15 +15,24 @@ const STATUS: Record<StatementStatus, { label: string; tone: "positive" | "warni
   parsed: { label: "Reconciled", tone: "positive" },
   needs_review: { label: "Needs review", tone: "warning" },
   failed: { label: "Failed", tone: "negative" },
-  uploaded: { label: "Uploaded", tone: "neutral" },
+  uploaded: { label: "Waiting", tone: "neutral" },
   extracting: { label: "Reading", tone: "brand" },
   processing: { label: "Processing", tone: "brand" },
 };
 
-/** A file left in progress for 5+ minutes was cut off (e.g. a timeout), so offer a retry. */
-function isInterrupted(status: string, updatedAt: string): boolean {
-  const inProgress = status === "extracting" || status === "processing" || status === "uploaded";
-  return inProgress && Date.now() - new Date(updatedAt).getTime() > 5 * 60 * 1000;
+const IN_PROGRESS = new Set(["uploaded", "extracting", "processing"]);
+
+/** Queued or being read right now (the background worker has it). */
+function isActive(s: { status: string; job_status: string | null }): boolean {
+  return IN_PROGRESS.has(s.status) && (s.job_status === "queued" || s.job_status === "running");
+}
+
+/**
+ * In progress but nothing is working on it: no live job (e.g. uploaded before background processing existed,
+ * or the job gave up) and untouched for 5+ minutes. Offer a retry.
+ */
+function isInterrupted(s: { status: string; updated_at: string; job_status: string | null }): boolean {
+  return IN_PROGRESS.has(s.status) && !isActive(s) && Date.now() - new Date(s.updated_at).getTime() > 5 * 60 * 1000;
 }
 
 interface StatementListRow {
@@ -46,6 +56,7 @@ interface StatementListRow {
   error: string | null;
   created_at: string;
   updated_at: string;
+  job_status: "queued" | "running" | "done" | "failed" | null;
 }
 
 export default async function StatementsPage() {
@@ -53,13 +64,16 @@ export default async function StatementsPage() {
   const [cards, statements] = await Promise.all([
     getCards(db),
     db.query<StatementListRow>(
-      `select id, card_id, file_name, file_type, file_path, status, issuer, period_start, period_end, opening_balance_pence,
-              closing_balance_pence, total_debits_pence, total_credits_pence, reconciled, reconciliation_diff_pence,
-              transaction_count, duplicates_dropped, error, created_at, updated_at
-       from statements order by period_end desc nulls first, created_at desc`,
+      `select s.id, s.card_id, s.file_name, s.file_type, s.file_path, s.status, s.issuer, s.period_start, s.period_end,
+              s.opening_balance_pence, s.closing_balance_pence, s.total_debits_pence, s.total_credits_pence, s.reconciled,
+              s.reconciliation_diff_pence, s.transaction_count, s.duplicates_dropped, s.error, s.created_at, s.updated_at,
+              j.status as job_status
+       from statements s left join statement_jobs j on j.statement_id = s.id
+       order by s.period_end desc nulls first, s.created_at desc`,
     ),
   ]);
   const cardMap = new Map(cards.map((c) => [c.id, cardLabel(c)]));
+  const anyActive = statements.some(isActive);
 
   if (!statements.length) {
     return (
@@ -81,6 +95,7 @@ export default async function StatementsPage() {
         description="Each statement is checked: opening balance + charges − credits must equal the closing balance."
         actions={<Link href="/app/upload" className={buttonClasses("primary")}>Upload</Link>}
       />
+      <AutoRefresh active={anyActive} />
       <Card>
         <Table>
           <thead>
@@ -98,8 +113,7 @@ export default async function StatementsPage() {
           </thead>
           <tbody>
             {statements.map((s) => {
-              // A file left "reading" for 5+ minutes was cut off (e.g. a timeout) — offer a retry.
-              const stale = isInterrupted(s.status, s.updated_at);
+              const stale = isInterrupted(s);
               const st = stale ? { label: "Interrupted — retry", tone: "warning" as const } : STATUS[s.status as StatementStatus];
               return (
                 <tr key={s.id} className="align-top">
@@ -130,7 +144,7 @@ export default async function StatementsPage() {
                     </div>
                   </Td>
                   <Td>
-                    <StatementActions id={s.id} canRetry={Boolean(s.file_path) && s.status !== "parsed"} />
+                    <StatementActions id={s.id} canRetry={Boolean(s.file_path) && s.status !== "parsed" && !isActive(s)} />
                   </Td>
                 </tr>
               );

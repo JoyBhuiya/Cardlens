@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { stripe } from "@/lib/billing/stripe";
 import { requireUser } from "@/lib/session";
 import { removeUserFiles } from "@/lib/storage";
 
@@ -45,6 +46,17 @@ export async function deleteRule(id: string) {
 export async function deleteAllData(formData: FormData) {
   if (formData.get("confirm") !== "DELETE") return;
   const { db, user } = await requireUser();
+  // Stop any running subscription first, so nobody is charged for an account that no longer exists.
+  // If Stripe can't be reached, keep the account and say so rather than leave a live subscription behind.
+  const subs = await db.query<{ id: string }>(
+    "select stripe_subscription_id as id from entitlements where stripe_subscription_id is not null and status in ('active', 'past_due')",
+  );
+  try {
+    for (const s of subs) await stripe().subscriptions.cancel(s.id);
+  } catch (err) {
+    console.error("cancel subscription before delete failed", err instanceof Error ? err.message : err);
+    redirect("/app/settings?error=billing");
+  }
   await removeUserFiles(user.id);
   await auth()
     .api.signOut({ headers: await headers() })

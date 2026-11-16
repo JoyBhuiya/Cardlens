@@ -22,11 +22,12 @@ export function cardLabel(c: Pick<CardRow, "issuer" | "nickname" | "last4">): st
 
 export type FullTxn = TxnRow & { id: string; statement_id: string; description_raw: string; is_recurring: boolean };
 
-export async function getAllTransactions(db: Db, opts: { year?: number } = {}): Promise<FullTxn[]> {
+export async function getAllTransactions(db: Db, opts: { year?: number; period?: { start: string; end: string } } = {}): Promise<FullTxn[]> {
   const params: unknown[] = [];
   let where = "";
-  if (opts.year) {
-    params.push(`${opts.year}-01-01`, `${opts.year}-12-31`);
+  const range = opts.period ?? (opts.year ? { start: `${opts.year}-01-01`, end: `${opts.year}-12-31` } : null);
+  if (range) {
+    params.push(range.start, range.end);
     where = "where posted_on between $1 and $2";
   }
   return db.query<FullTxn>(
@@ -42,6 +43,12 @@ export async function getStatementBalances(db: Db): Promise<StatementBalanceRow[
     `select card_id, period_start, period_end, opening_balance_pence, closing_balance_pence
      from statements where status in ('parsed', 'needs_review')`,
   );
+}
+
+/** First and last transaction dates, or nulls when there are none. */
+export async function getDataRange(db: Db): Promise<{ first: string | null; last: string | null }> {
+  const row = await db.one<{ first: string | null; last: string | null }>("select min(posted_on) as first, max(posted_on) as last from transactions");
+  return { first: row?.first ?? null, last: row?.last ?? null };
 }
 
 /** Calendar years that have transactions, newest first. */

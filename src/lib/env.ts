@@ -37,6 +37,23 @@ export const serverEnv = {
   mailReplyTo: () => process.env.MAIL_REPLY_TO ?? "",
   /** Development and e2e only: write outgoing mail as JSON files here instead of sending it. */
   mailOutboxDir: () => process.env.MAIL_OUTBOX_DIR ?? "",
+
+  /**
+   * Payments. Off (the default) = "early access": every feature is unlocked for everyone and no checkout is
+   * shown. Turn on only after the legal items in tasks/todo.md are done.
+   */
+  paymentsEnabled: () => process.env.PAYMENTS_ENABLED === "true",
+  stripeSecretKey: () => required("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY),
+  stripeWebhookSecret: () => required("STRIPE_WEBHOOK_SECRET", process.env.STRIPE_WEBHOOK_SECRET),
+  stripePrice: (plan: "personal" | "side_business") =>
+    plan === "personal"
+      ? required("STRIPE_PRICE_PERSONAL", process.env.STRIPE_PRICE_PERSONAL)
+      : required("STRIPE_PRICE_SIDE_BUSINESS", process.env.STRIPE_PRICE_SIDE_BUSINESS),
+
+  /** Background statement processing inside the app process. "false" stops the worker (e.g. maintenance). */
+  workerEnabled: () => process.env.WORKER_ENABLED !== "false",
+  /** Statements processed at the same time. Each PDF holds one Claude request open for up to ~2 minutes. */
+  workerConcurrency: () => int(process.env.WORKER_CONCURRENCY, 2),
 };
 
 export const LIMITS = {

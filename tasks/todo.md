@@ -10,19 +10,27 @@
 - [x] Auto-deploy: push to `main` → verify → deploy (forced-command key, current-head-only hook)
 - [x] Runbook `docs/runbooks/deploy.md`, ADR 0001, README
 
+## Done (branch feat/subscriptions-and-refinements)
+- [x] 6-digit sign-in codes (email-OTP, hashed, 5 attempts, scanner-safe link)
+- [x] Background processing: `statement_jobs` queue + in-process worker, status polling, retry
+- [x] Report periods: calendar year, UK tax year, any 12 months (Insights and report)
+- [x] Plans + entitlements, Stripe Checkout / Portal / webhook (idempotent), `PAYMENTS_ENABLED` switch
+- [x] Legal placeholders in one place (`src/lib/legal.ts`), Stripe in privacy/terms, free data download
+
 ## Open
 - [ ] Joy: disconnect the old Vercel project and delete the Supabase project
 - [ ] Run one real PDF statement through the live site (Anthropic path in production); check cost in `usage_events`
 - [ ] Off-server backup copies; one restore test from a real dump
-- [ ] Sign-in mail lands in Outlook Junk (SCL 5, all auth passes): watch; switch to 6-digit codes if testers keep hitting it
 - [ ] Remove the duplicate `include:mx.ovh.com` in the brightnext.eu SPF record (harmless)
 
 ## Before charging anyone (blocking)
 - [ ] Operating entity and seller of record (who, which country); IP ownership between the founders
 - [ ] ICO fee, UK representative check (UK GDPR Art. 27), DPIA
-- [ ] `/privacy` and `/terms`: fill `[Company name]`, `[privacy email]`, `[Hosting provider]`, `[location]`; processors are the hosting provider, Anthropic, Mailjet (later Stripe)
+- [ ] Fill `src/lib/legal.ts` (company name and number, registered address, privacy email, ICO number, hosting provider and location); have privacy/terms reviewed
 - [ ] Measure cost per statement from `usage_events` tokens before fixing prices
 
-## Commercialisation (after the above)
-- [ ] Decide: £9 one-off annual report (personal) + £29/yr (side business); park £49 professional
-- [ ] Stripe Checkout + webhooks (verified, idempotent), `entitlements` + one `hasAccess()`; free tier = upload, reconcile, transactions, report teaser
+## Turning payments on
+- [ ] Stripe account (test mode first): products £9 one-off and £29 yearly, Customer Portal, webhook (see runbook)
+- [ ] Server `.env`: `STRIPE_*` keys; test end to end with `PAYMENTS_ENABLED=true` on a test key
+- [ ] Live keys + live webhook, then `PAYMENTS_ENABLED=true` in production
+- [ ] Later: remove the magicLink plugin (kept only so old links fail cleanly); £49 Professional tier

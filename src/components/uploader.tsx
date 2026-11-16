@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, FileUp } from "lucide-react";
 import { createCard } from "@/app/app/actions";
 import { Badge, Button, Card, CardBody, Input, Label, Select, buttonClasses } from "@/components/ui";
@@ -16,10 +16,33 @@ type CardOpt = { id: string; issuer: string; nickname: string | null; last4: str
 type Item = {
   key: string;
   file: File;
-  state: "queued" | "uploading" | "reading" | "parsed" | "needs_review" | "failed";
+  /** "queued" = picked but not sent yet; "waiting" = uploaded, in the processing queue. */
+  state: "queued" | "uploading" | "waiting" | "reading" | "parsed" | "needs_review" | "failed";
   message?: string;
   count?: number;
+  statementId?: string;
 };
+
+type ServerStatus = { id: string; status: string; transaction_count: number; error: string | null };
+
+const POLL_MS = 2000;
+
+function fromServer(s: ServerStatus, file: File): Partial<Item> {
+  switch (s.status) {
+    case "uploaded":
+      return { state: "waiting", message: "Waiting to be read…" };
+    case "extracting":
+      return { state: "reading", message: file.name.toLowerCase().endsWith(".pdf") ? "Reading every line…" : "Reading CSV…" };
+    case "processing":
+      return { state: "reading", message: "Checking and sorting…" };
+    case "parsed":
+      return { state: "parsed", count: s.transaction_count, message: `${s.transaction_count} transactions, balances check out.` };
+    case "needs_review":
+      return { state: "needs_review", count: s.transaction_count, message: s.error?.split("\n")[0] ?? "Totals don't match the statement balances." };
+    default:
+      return { state: "failed", message: s.error ?? "Could not read this file." };
+  }
+}
 
 const label = (c: CardOpt) => `${c.nickname || c.issuer}${c.last4 ? ` ••${c.last4}` : ""}`;
 
@@ -30,7 +53,7 @@ function fileType(f: File): "pdf" | "csv" | null {
   return null;
 }
 
-export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
+export function Uploader({ initialCards, maxCards }: { initialCards: CardOpt[]; maxCards: number | null }) {
   const router = useRouter();
   const [cards, setCards] = useState(initialCards);
   const [cardId, setCardId] = useState(initialCards[0]?.id ?? "");
@@ -43,6 +66,42 @@ export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const update = (key: string, patch: Partial<Item>) => setItems((list) => list.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+  const atCardLimit = maxCards !== null && cards.length >= maxCards;
+
+  // Poll the server for files that are uploaded but not finished. Processing runs in the background, so the
+  // person can also leave this page; Statements shows the same progress.
+  const pending = items.filter((i) => i.statementId && (i.state === "waiting" || i.state === "reading"));
+  const pendingIds = pending.map((i) => i.statementId).join(",");
+  useEffect(() => {
+    if (!pendingIds) return;
+    let cancelled = false;
+    const t = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/statements/status?ids=${pendingIds}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { statements: ServerStatus[] };
+        setItems((list) =>
+          list.map((i) => {
+            const s = body.statements.find((x) => x.id === i.statementId);
+            return s ? { ...i, ...fromServer(s, i.file) } : i;
+          }),
+        );
+      } catch {
+        // Network blip: try again on the next tick.
+      }
+    }, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [pendingIds]);
+
+  const wasPending = useRef(false);
+  useEffect(() => {
+    // Refresh server data (Overview, nav badges) once everything in this batch has finished.
+    if (wasPending.current && !pendingIds) router.refresh();
+    wasPending.current = Boolean(pendingIds);
+  }, [pendingIds, router]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
@@ -79,13 +138,11 @@ export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
     setBusy(true);
     const queue = items.filter((i) => i.state === "queued");
     for (const item of queue) {
-      const type = fileType(item.file)!;
       update(item.key, { state: "uploading", message: "Uploading securely…" });
       const form = new FormData();
       form.set("cardId", cardId);
       form.set("keepFile", String(keepFiles));
       form.set("file", item.file);
-      let id: string;
       try {
         const res = await fetch("/api/statements/upload", { method: "POST", body: form });
         const body = (await res.json()) as { id?: string; error?: string };
@@ -93,35 +150,16 @@ export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
           update(item.key, { state: "failed", message: body.error ?? "Upload failed. Please try again." });
           continue;
         }
-        id = body.id;
+        update(item.key, { state: "waiting", statementId: body.id, message: "Waiting to be read…" });
       } catch {
         update(item.key, { state: "failed", message: "Upload failed. Please try again." });
-        continue;
-      }
-      update(item.key, { state: "reading", message: type === "pdf" ? "Reading every line…" : "Reading CSV…" });
-      try {
-        const res = await fetch(`/api/statements/${id}/process`, { method: "POST" });
-        const body = (await res.json()) as { status: Item["state"]; transactionCount: number; issues: string[]; error?: string };
-        update(item.key, {
-          state: body.status,
-          count: body.transactionCount,
-          message:
-            body.status === "failed"
-              ? body.error ?? "Could not read this file."
-              : body.status === "needs_review"
-                ? body.issues[0] ?? "Totals don't match the statement balances."
-                : `${body.transactionCount} transactions, balances check out.`,
-        });
-      } catch {
-        update(item.key, { state: "failed", message: "Processing timed out. Try again from Statements." });
       }
     }
     setBusy(false);
-    router.refresh();
   }
 
   const queued = items.filter((i) => i.state === "queued").length;
-  const done = items.some((i) => i.state === "parsed" || i.state === "needs_review");
+  const done = items.some((i) => i.state === "parsed" || i.state === "needs_review" || i.state === "waiting" || i.state === "reading");
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,9 +178,18 @@ export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
                   ))}
                 </Select>
               </div>
-              <Button variant="secondary" type="button" onClick={() => setAdding(true)}>
-                Add another card
-              </Button>
+              {atCardLimit ? (
+                <p className="text-sm text-muted">
+                  Your plan includes {maxCards} card{maxCards === 1 ? "" : "s"}.{" "}
+                  <Link href="/app/billing" className="font-semibold">
+                    Upgrade for more
+                  </Link>
+                </p>
+              ) : (
+                <Button variant="secondary" type="button" onClick={() => setAdding(true)}>
+                  Add another card
+                </Button>
+              )}
             </div>
           ) : (
             <form action={onAddCard} className="grid gap-4 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end">
@@ -255,8 +302,13 @@ export function Uploader({ initialCards }: { initialCards: CardOpt[] }) {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" size="lg" disabled={!cardId || queued === 0 || busy || adding} onClick={processAll}>
-              {busy ? "Processing…" : `Process ${queued || ""} file${queued === 1 ? "" : "s"}`}
+              {busy ? "Uploading…" : `Process ${queued || ""} file${queued === 1 ? "" : "s"}`}
             </Button>
+            {pending.length > 0 ? (
+              <p className="w-full text-sm text-muted" role="status">
+                Reading happens in the background. You can leave this page; progress also shows on Statements.
+              </p>
+            ) : null}
             {done && !busy ? (
               <>
                 <Link href="/app/statements" className={buttonClasses("secondary", "lg")}>
@@ -283,6 +335,7 @@ function StatusIcon({ state }: { state: Item["state"] }) {
     case "failed":
       return <XCircle size={20} className="text-negative" aria-label="Failed" />;
     case "uploading":
+    case "waiting":
     case "reading":
       return <Loader2 size={20} className="animate-spin text-brand" aria-label="In progress" />;
     default:

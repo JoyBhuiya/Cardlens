@@ -7,7 +7,8 @@ import { addCategory, deleteAllData } from "./actions";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const { db, user } = await requireUser();
   const [cards, categories, rules] = await Promise.all([
     getCards(db),
@@ -22,6 +23,11 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" description={`Signed in as ${user.email}`} />
+      {error === "billing" ? (
+        <p role="alert" className="mb-6 rounded-[10px] border border-negative/30 bg-negative/10 px-4 py-3 text-[15px] text-negative">
+          We couldn&apos;t cancel your subscription with Stripe, so nothing was deleted. Please try again in a few minutes.
+        </p>
+      ) : null}
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
@@ -116,7 +122,8 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Delete all my data</CardTitle>
             <p className="text-sm text-muted">
-              Permanently removes your statement files, transactions, reports, rules, cards and your account. This cannot be undone. Export a CSV first if you want a copy.
+              Permanently removes your statement files, transactions, reports, rules, cards and your account, and cancels any subscription. This
+              cannot be undone. Download your data first if you want a copy.
             </p>
           </CardHeader>
           <CardBody>
@@ -126,7 +133,7 @@ export default async function SettingsPage() {
                 <Input id="confirm" name="confirm" required pattern="DELETE" autoComplete="off" className="min-h-11 w-48" />
               </div>
               <button type="submit" className={buttonClasses("danger")}>Delete everything</button>
-              <a href="/api/export/transactions" className={buttonClasses("secondary")}>Export CSV first</a>
+              <a href="/api/export/my-data" className={buttonClasses("secondary")}>Download all my data</a>
             </form>
           </CardBody>
         </Card>

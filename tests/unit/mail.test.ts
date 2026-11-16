@@ -2,22 +2,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { signInEmail } from "@/lib/email/sign-in";
 import { sendMail } from "@/lib/mail";
 
-const URL_WITH_PARAMS = "https://cardlens.example/api/auth/magic-link/verify?token=abc&callbackURL=%2Fapp";
+const URL_WITH_PARAMS = "https://cardlens.example/login/code?email=a%40b.test&code=482913";
 
 describe("sign-in email", () => {
-  const mail = signInEmail({ url: URL_WITH_PARAMS, minutes: 60, siteHost: "cardlens.example" });
+  const mail = signInEmail({ code: "482913", url: URL_WITH_PARAMS, minutes: 15, siteHost: "cardlens.example" });
 
-  it("puts the link in the button, the fallback and the plain-text part", () => {
+  it("shows the code in the subject, the HTML and the plain-text part", () => {
+    expect(mail.subject).toBe("482913 is your Cardlens sign-in code");
+    expect(mail.html).toContain(">482913</p>");
+    expect(mail.text).toContain("Your sign-in code is: 482913");
+  });
+
+  it("links to the confirm page (escaped) in the button and the plain-text part", () => {
     const escaped = URL_WITH_PARAMS.replace(/&/g, "&amp;");
-    expect(mail.html.split(`href="${escaped}"`)).toHaveLength(3);
-    expect(mail.html).toContain(`>${escaped}</a>`);
+    expect(mail.html).toContain(`href="${escaped}"`);
+    expect(mail.html).not.toContain("a%40b.test&code");
     expect(mail.text).toContain(URL_WITH_PARAMS);
-    expect(mail.html).not.toContain("token=abc&callbackURL");
   });
 
   it("states the expiry and how to ignore it, in both parts", () => {
     for (const body of [mail.html, mail.text]) {
-      expect(body).toContain("expires in 60 minutes");
+      expect(body).toContain("expires in 15 minutes");
       expect(body).toContain("you can ignore this email");
       expect(body).toContain("cardlens.example");
     }
@@ -27,10 +32,11 @@ describe("sign-in email", () => {
     expect(mail.html).not.toMatch(/<img|<script|<link|<svg|url\(/i);
   });
 
-  it("escapes HTML in the link and host", () => {
-    const evil = signInEmail({ url: 'https://x.test/?a="><script>', minutes: 5, siteHost: "<b>host</b>" });
+  it("escapes HTML in the link, code and host", () => {
+    const evil = signInEmail({ code: "<i>1</i>", url: 'https://x.test/?a="><script>', minutes: 5, siteHost: "<b>host</b>" });
     expect(evil.html).not.toContain("<script>");
     expect(evil.html).not.toContain("<b>host</b>");
+    expect(evil.html).not.toContain("<i>1</i>");
     expect(evil.html).toContain("&quot;&gt;&lt;script&gt;");
   });
 });

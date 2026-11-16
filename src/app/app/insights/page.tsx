@@ -2,18 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardBody, CardHeader, CardTitle, EmptyState, PageHeader, Table, Td, Th, buttonClasses } from "@/components/ui";
 import { CategoryDonut, HBarList, SpendVsPaymentsChart } from "@/components/charts";
+import { PeriodPicker } from "@/components/period-picker";
+import { UpgradeCard } from "@/components/upgrade";
 import { computeMetrics } from "@/lib/analytics";
-import { getAllTransactions, getCustomCategoryNames, getStatementBalances, getYears } from "@/lib/data";
+import { getAllTransactions, getCustomCategoryNames, getDataRange, getStatementBalances } from "@/lib/data";
+import { getAccessCached } from "@/lib/entitlements";
+import { availablePeriods, calendarYear, monthStarts, parsePeriodKey } from "@/lib/period";
 import { formatPence } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { monthLabel } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Insights" };
 
-export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ period?: string; year?: string }> }) {
   const { db } = await requireUser();
-  const years = await getYears(db);
-  if (!years.length) {
+  const [range, access] = await Promise.all([getDataRange(db), getAccessCached(db)]);
+  if (!range.first || !range.last) {
     return (
       <>
         <PageHeader title="Insights" />
@@ -21,24 +25,38 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
       </>
     );
   }
-  const { year: yParam } = await searchParams;
-  const year = years.includes(Number(yParam)) ? Number(yParam) : years[0];
-  const [txns, statements, names] = await Promise.all([getAllTransactions(db, { year }), getStatementBalances(db), getCustomCategoryNames(db)]);
-  const m = computeMetrics(txns, statements, { year, customCategoryNames: names });
+  if (!access.can("insights")) {
+    return (
+      <>
+        <PageHeader title="Insights" />
+        <UpgradeCard
+          feature="insights"
+          title="See where the money went"
+          body="Spending by category, top merchants, month-by-month spikes, recurring charges and subscriptions with their yearly cost, and foreign-currency spend, for any year, tax year or 12 months."
+        />
+      </>
+    );
+  }
+  const sp = await searchParams;
+  // ?period= (2026, tax-2025, m-2025-11); older links used ?year=2026.
+  const period = parsePeriodKey(sp.period ?? sp.year ?? "") ?? calendarYear(Number(range.last.slice(0, 4)));
+  const periods = availablePeriods(range.first, range.last);
+  const [txns, statements, names] = await Promise.all([getAllTransactions(db, { period }), getStatementBalances(db), getCustomCategoryNames(db)]);
+  const m = computeMetrics(txns, statements, { period, customCategoryNames: names });
 
   return (
     <>
       <PageHeader
         title="Insights"
-        description={`Where the money went in ${year}`}
+        description={`Where the money went: ${period.label}`}
         actions={
-          <nav className="flex gap-1" aria-label="Year">
-            {years.map((y) => (
-              <Link key={y} href={`?year=${y}`} aria-current={y === year ? "page" : undefined} className={buttonClasses(y === year ? "primary" : "secondary", "sm")}>
-                {y}
-              </Link>
-            ))}
-          </nav>
+          <PeriodPicker
+            base="/app/insights?period="
+            current={period.key}
+            calendar={periods.calendar.map((p) => ({ key: p.key, short: p.short }))}
+            tax={periods.tax.map((p) => ({ key: p.key, short: p.short }))}
+            months={monthStarts(range.first, range.last)}
+          />
         }
       />
       <div className="grid gap-6 lg:grid-cols-2">
@@ -105,12 +123,13 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
               </tbody>
             </Table>
           ) : (
-            <p className="text-muted">None found for {year}.</p>
+            <p className="text-muted">None found for {period.label}.</p>
           )}
         </CardBody>
       </Card>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
+        {access.can("business_split") ? (
         <Card>
           <CardHeader>
             <CardTitle>Business share</CardTitle>
@@ -120,6 +139,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             <p className="mt-1 text-sm text-muted">{m.business.share_pct}% of spending is flagged as business. Tick the business box on any transaction to change this.</p>
           </CardBody>
         </Card>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Foreign currency</CardTitle>
