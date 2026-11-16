@@ -189,6 +189,23 @@ All money is whole pence (`bigint`). Dates are `date` and are returned to the ap
 - Deleting all data cancels any live subscription first. Everyone can download all their data as JSON for free
   (UK GDPR), even though CSV export is paid.
 
+## 7a. Retention and data minimisation
+
+- `src/lib/retention-policy.ts` (pure, unit-tested) holds the rules; `src/lib/retention.ts` applies them from the
+  worker, about a minute after start and then every 6 hours. Each step re-checks its conditions in SQL, so
+  repeated or overlapping runs are harmless.
+- **Inactive accounts:** `user.last_active_at` is updated (at most daily) on signed-in requests. After
+  `RETENTION_INACTIVE_MONTHS` (default 13) minus `RETENTION_WARNING_DAYS` (30) the user gets one warning email;
+  the account is deleted only once that warning is at least 30 days old and the 13 months have passed. Signing
+  in clears the warning. Accounts holding a paid plan that hasn't ended are skipped.
+- **Files:** statements that weren't read successfully lose their file after 7 days; files the user chose to
+  keep, after 90 days.
+- **Housekeeping:** expired sign-in codes and sessions, and rate-limit windows older than 2 days, are removed.
+  Sessions never store IP address or user agent (Better Auth database hook).
+- `/privacy` renders its retention table from the same config, so the notice can't drift from the code.
+- Saving ideas never tell a user how or when to repay their card (`summary/validate.ts` rejects repayment
+  wording): personalised repayment advice may be regulated debt counselling (FCA PERG 17).
+
 ## 8. Deployment and CI/CD
 
 ```mermaid

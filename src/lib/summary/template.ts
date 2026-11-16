@@ -18,8 +18,8 @@ export function ruleBasedSavingIdeas(m: Metrics): SavingIdea[] {
   }
   if (m.interest_and_fees_pence > 0) {
     ideas.push({
-      title: "Avoid interest and fees",
-      detail: `You paid ${gbp(m.interest_and_fees_pence)} in interest and fees. Paying the full balance by the due date each month avoids most of this.`,
+      title: "Look at what interest and fees cost you",
+      detail: `You were charged ${gbp(m.interest_and_fees_pence)} in interest and fees. Card interest is generally charged on any balance left after the statement due date; your card's terms set out exactly how. For free, impartial help with card costs, see MoneyHelper.`,
       estimated_annual_saving_gbp: pounds(m.interest_and_fees_pence),
     });
   }

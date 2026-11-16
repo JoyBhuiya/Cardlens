@@ -2,7 +2,8 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { userDb, type UserDb } from "@/lib/db";
+import { anonDb, userDb, type UserDb } from "@/lib/db";
+import { touchUser } from "@/lib/retention";
 
 export interface SessionUser {
   id: string;
@@ -20,5 +21,7 @@ export async function getUser(): Promise<SessionUser | null> {
 export async function requireUser(): Promise<{ db: UserDb; user: SessionUser }> {
   const user = await getUser();
   if (!user) redirect("/login");
+  // Last activity drives inactive-account deletion (src/lib/retention.ts); never block the page on it.
+  await touchUser(anonDb, user.id).catch((err) => console.error("touchUser failed", err instanceof Error ? err.message : err));
   return { db: userDb(user.id), user };
 }

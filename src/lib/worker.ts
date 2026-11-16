@@ -3,6 +3,7 @@ import { anonDb, userDb } from "@/lib/db";
 import { serverEnv } from "@/lib/env";
 import { claimJob, finishJob, MAX_JOB_ATTEMPTS, onWake, retryJobLater, type ClaimedJob } from "@/lib/jobs";
 import { processStatement } from "@/lib/pipeline/run";
+import { runRetention } from "@/lib/retention";
 
 /**
  * In-process background worker: `concurrency` loops that claim statement jobs and run the pipeline.
@@ -11,6 +12,9 @@ import { processStatement } from "@/lib/pipeline/run";
  */
 
 const IDLE_POLL_MS = 3000;
+/** Retention sweep (inactive accounts, leftover files, expired codes and sessions): soon after start, then every 6 h. */
+const RETENTION_FIRST_MS = 60_000;
+const RETENTION_EVERY_MS = 6 * 60 * 60 * 1000;
 const ERROR_BACKOFF_MS = 5000;
 
 const globalForWorker = globalThis as unknown as { cardlensWorker?: { stop: () => void } };
@@ -73,9 +77,21 @@ export function startWorker(): void {
     void loop(signal);
   }
   const unsubscribe = onWake(() => loops.forEach((l) => l.wake?.()));
+  const sweep = () =>
+    runRetention()
+      .then((r) => {
+        if (r.warned || r.deleted || r.filesRemoved) console.log(`[retention] warned ${r.warned}, deleted ${r.deleted}, files removed ${r.filesRemoved}`);
+      })
+      .catch((err) => console.error("[retention] sweep failed", err instanceof Error ? err.message : err));
+  const firstSweep = setTimeout(sweep, RETENTION_FIRST_MS);
+  const sweeps = setInterval(sweep, RETENTION_EVERY_MS);
+  firstSweep.unref?.();
+  sweeps.unref?.();
   globalForWorker.cardlensWorker = {
     stop() {
       state.stopped = true;
+      clearTimeout(firstSweep);
+      clearInterval(sweeps);
       unsubscribe();
       loops.forEach((l) => l.wake?.());
     },
